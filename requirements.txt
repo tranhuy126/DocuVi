@@ -1,0 +1,12 @@
+# Core Web Framework
+Flask>=3.0.0
+Werkzeug>=3.0.0
+
+# PDF Engine & Graphics
+PyMuPDF>=1.24.0
+
+# Deep Learning & AI Translation
+torch>=2.0.0
+transformers>=4.40.0
+sentencepiece>=0.2.0
+protobuf>=4.25.0

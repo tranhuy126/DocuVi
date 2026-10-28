@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="vi" class="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuVi — Hệ Thống Dịch Thuật Tài Liệu PDF Giữ Nguyên Định Dạng Bằng AI</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                            950: '#172554',
+                        },
+                        dark: {
+                            bg: '#0b0f17',
+                            surface: '#131924',
+                            card: '#1a2232',
+                            border: '#26334d',
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'spin-fast': 'spin 0.8s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.3);
+            border-radius: 99px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.5);
+        }
+
+        /* Subtle grid background pattern */
+        .bg-grid-pattern {
+            background-size: 32px 32px;
+            background-image:
+                linear-gradient(to right, rgba(226, 232, 240, 0.4) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(226, 232, 240, 0.4) 1px, transparent 1px);
+        }
+
+        .dark .bg-grid-pattern {
+            background-image:
+                linear-gradient(to right, rgba(38, 51, 77, 0.3) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(38, 51, 77, 0.3) 1px, transparent 1px);
+        }
+
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .dark .glass-panel {
+            background: rgba(19, 25, 36, 0.85);
+        }
+
+        /* Custom Dropzone Pulse */
+        .dropzone-active {
+            border-color: #2563eb !important;
+            background-color: rgba(37, 99, 235, 0.04) !important;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-[#fafafb] text-slate-800 dark:bg-dark-bg dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-200 antialiased selection:bg-brand-500 selection:text-white">
+
+    <header
+        class="sticky top-0 z-30 glass-panel border-b border-slate-200/80 dark:border-dark-border transition-colors">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+
+
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('doc')">
+                <div
+                    class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+                    <i class="ph-bold ph-sparkle text-2xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white font-sans">DocuVi</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Nav Links -->
+            <nav
+                class="hidden md:flex items-center gap-1 bg-slate-100/80 dark:bg-dark-surface p-1 rounded-xl border border-slate-200/60 dark:border-dark-border">
+                <button id="nav-doc-btn" onclick="switchTab('doc')"
+                    class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white text-slate-900 dark:bg-dark-card dark:text-white">
+                    <i class="ph-bold ph-file-text mr-1.5 text-brand-600 dark:text-brand-400"></i>Dịch Tài Liệu
+                </button>
+                <button id="nav-text-btn" onclick="switchTab('text')"
+                    class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all">
+                    <i class="ph-bold ph-textbox mr-1.5"></i>Dịch Văn Bản
+                </button>
+            </nav>
+
+
+            <div class="flex items-center gap-3">
+
+                <div id="system-status-pill"
+                    class="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                    <span id="system-status-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="system-status-text">VinAI CUDA Active</span>
+                </div>
+
+
+                <button onclick="toggleTheme()"
+                    class="w-9 h-9 rounded-xl border border-slate-200 dark:border-dark-border flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-dark-surface transition-colors"
+                    title="Đổi giao diện Sáng/Tối">
+                    <i id="theme-icon" class="ph-bold ph-moon text-lg"></i>
+                </button>
+
+                <!-- About Project Button -->
+                <button onclick="toggleAboutModal()"
+                    class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-dark-border flex items-center gap-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-surface text-sm font-semibold transition-colors"
+                    title="Thông tin đề tài & Báo cáo kỹ thuật">
+                    <i class="ph-bold ph-graduation-cap text-lg text-brand-600 dark:text-brand-400"></i>
+                    <span class="hidden sm:inline">Về đề tài</span>
+                </button>
+
+                <!-- History Drawer Trigger Button -->
+                <button onclick="toggleHistoryDrawer()"
+                    class="relative px-3 py-1.5 rounded-xl border border-slate-200 dark:border-dark-border flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-surface text-sm font-semibold transition-colors">
+                    <i class="ph-bold ph-clock-counter-clockwise text-lg text-slate-500"></i>
+                    <span class="hidden sm:inline">Lịch sử</span>
+                    <span id="history-badge"
+                        class="px-1.5 py-0.2 bg-brand-600 text-white text-[11px] font-bold rounded-full">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full bg-grid-pattern">
+
+
+        <div class="text-center max-w-3xl mx-auto mb-8">
+            <div
+                class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300 border border-brand-200/80 dark:border-brand-800/80 mb-3 shadow-xs">
+                <i class="ph-fill ph-sparkle text-brand-600 dark:text-brand-400"></i>
+                VINAI TRANSLATION
+            </div>
+            <h1
+                class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
+                Dịch Thuật PDF AI & <br class="hidden sm:inline" />
+                <span
+                    class="bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">Giữ
+                    Định Dạng</span>
+            </h1>
+            <p class="mt-3 text-slate-600 dark:text-slate-400 text-base sm:text-lg leading-relaxed font-normal">
+                Dịch thuật tài liệu PDF & văn bản từ Tiếng Anh sang Tiếng Việt bằng mô hình VinAI En2Vi. Tự
+                động bảo toàn bố cục, hình ảnh, bảng biểu.
+            </p>
+        </div>
+
+
+        <div class="flex md:hidden justify-center mb-6">
+            <div class="bg-slate-200/80 dark:bg-dark-surface p-1 rounded-xl flex gap-1 w-full max-w-xs">
+                <button id="mob-doc-btn" onclick="switchTab('doc')"
+                    class="flex-1 py-2 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm dark:bg-dark-card dark:text-white">
+                    <i class="ph-bold ph-file-text mr-1"></i>Dịch File
+                </button>
+                <button id="mob-text-btn" onclick="switchTab('text')"
+                    class="flex-1 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400">
+                    <i class="ph-bold ph-textbox mr-1"></i>Văn Bản
+                </button>
+            </div>
+        </div>
+
+
+        <div id="doc-workspace-container" class="space-y-6 transition-all duration-300">
+
+
+            <div
+                class="bg-white dark:bg-dark-surface p-4 rounded-2xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+
+
+                <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+
+                    <div
+                        class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-dark-card border border-slate-200 dark:border-dark-border text-slate-800 dark:text-slate-200 font-semibold text-sm">
+                        <span class="text-xl">🇬🇧</span>
+                        <span>English</span>
+                    </div>
+
+
+                    <div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-dark-card border border-slate-200 dark:border-dark-border text-xs font-bold text-brand-600 dark:text-brand-400"
+                        title="Mô hình VinAI chuyên biệt dịch từ Tiếng Anh sang Tiếng Việt">
+                        <span class="hidden sm:inline">En</span>
+                        <i class="ph-bold ph-arrow-right text-sm"></i>
+                        <span class="hidden sm:inline">Vi</span>
+                    </div>
+
+
+                    <div
+                        class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-brand-50/50 dark:bg-brand-950/30 border border-brand-200/60 dark:border-brand-800/60 text-brand-900 dark:text-brand-200 font-semibold text-sm">
+                        <span class="text-xl">🇻🇳</span>
+                        <span>Tiếng Việt</span>
+                    </div>
+                </div>
+
+
+                <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                    <label
+                        class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:inline">Chế
+                        độ dịch:</label>
+                    <div class="relative w-full md:w-64">
+                        <select id="doc-beam-select"
+                            class="w-full appearance-none bg-slate-50 dark:bg-dark-card border border-slate-200 dark:border-dark-border text-slate-800 dark:text-slate-200 text-sm font-semibold rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer">
+                            <option value="1">⚡ Tốc độ cao </option>
+                            <option value="4">🎯 Độ chính xác cao </option>
+                        </select>
+                        <i
+                            class="ph-bold ph-caret-down absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="dropzone-card"
+                class="bg-white dark:bg-dark-surface rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-8 sm:p-12 text-center transition-all duration-200 hover:border-brand-500 dark:hover:border-brand-500 group relative">
+
+                <input type="file" id="file-input" class="hidden" accept=".pdf" onchange="handleFileSelect(event)">
+
+                <div class="max-w-md mx-auto space-y-4">
+
+                    <div
+                        class="w-20 h-20 mx-auto rounded-3xl bg-brand-50 dark:bg-brand-950/50 border border-brand-100 dark:border-brand-800/50 flex items-center justify-center text-brand-600 dark:text-brand-400 group-hover:scale-105 transition-transform duration-300 shadow-inner">
+                        <i class="ph-duotone ph-cloud-arrow-up text-4xl"></i>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-white">Kéo & thả tài liệu PDF vào đây</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Định dạng hỗ trợ: Tài liệu PDF (.pdf)</p>
+                    </div>
+
+                    <div class="flex items-center justify-center gap-3 pt-2">
+                        <button onclick="document.getElementById('file-input').click()"
+                            class="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shadow-md shadow-brand-500/20 active:scale-95 transition-all flex items-center gap-2 mx-auto">
+                            <i class="ph-bold ph-folder-open text-lg"></i>
+                            Chọn file từ máy tính
+                        </button>
+                    </div>
+
+                    <div class="pt-2 flex items-center justify-center gap-2 text-xs text-slate-400 font-medium">
+                        <span><i class="ph-bold ph-shield-check text-emerald-500 mr-1"></i>Xử lý an toàn nội bộ</span>
+                        <span>•</span>
+                        <span>Tối đa 50MB / File</span>
+                    </div>
+
+                    <!-- Quick Sample Files for Instant Testing -->
+                    <div class="pt-6 border-t border-slate-100 dark:border-dark-border">
+                        <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
+                            Hoặc thử ngay với file mẫu có sẵn:</p>
+                        <div class="flex flex-wrap justify-center gap-2">
+                            <button onclick="loadSampleFile('test1')"
+                                class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-dark-card dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors flex items-center gap-1.5">
+                                <i class="ph-bold ph-file-pdf text-red-500 text-sm"></i>
+                                test1.pdf (Mẫu thử nghiệm)
+                            </button>
+                            <button onclick="loadSampleFile('therapy')"
+                                class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-dark-card dark:hover:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors flex items-center gap-1.5">
+                                <i class="ph-bold ph-file-pdf text-indigo-500 text-sm"></i>
+                                Best_Online_Therapy_for_Kids.pdf
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="file-selected-card"
+                class="hidden bg-white dark:bg-dark-surface rounded-2xl border border-slate-200/80 dark:border-dark-border p-6 shadow-sm">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-4 w-full sm:w-auto">
+                        <div id="file-icon-bg"
+                            class="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                            <i id="file-icon" class="ph-duotone ph-file-pdf text-3xl"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <h4 id="file-name-display"
+                                class="font-bold text-slate-900 dark:text-white text-base truncate">document.pdf</h4>
+                            <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                <span id="file-size-display">2.4 MB</span>
+                                <span>•</span>
+                                <span id="file-pages-display">14 trang ước tính</span>
+                                <span>•</span>
+                                <span
+                                    class="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                                    <i class="ph-bold ph-check-circle"></i> Sẵn sàng dịch
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                        <button onclick="resetFileSelection()"
+                            class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dark-border hover:bg-slate-100 dark:hover:bg-dark-card text-slate-600 dark:text-slate-300 text-sm font-semibold transition-colors">
+                            Hủy chọn
+                        </button>
+                        <button onclick="startDocTranslation()" id="start-trans-btn"
+                            class="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shadow-md shadow-brand-500/20 transition-all flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-sparkle text-lg"></i>
+                            Bắt đầu dịch AI
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="progress-card"
+                class="hidden bg-white dark:bg-dark-surface rounded-2xl border border-slate-200/80 dark:border-dark-border p-6 sm:p-8 shadow-sm space-y-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="font-bold text-slate-900 dark:text-white text-lg flex items-center gap-2">
+                            <i class="ph-bold ph-circle-notch animate-spin text-brand-600"></i>
+                            Hệ thống AI đang xử lý tài liệu...
+                        </h4>
+                        <p id="progress-status-text" class="text-xs text-slate-500 dark:text-slate-400 mt-1">Đang phân
+                            tích cấu trúc trang và OCR văn bản...</p>
+                    </div>
+                    <span id="progress-percent"
+                        class="text-2xl font-black text-brand-600 dark:text-brand-400 font-mono">0%</span>
+                </div>
+
+                <div class="w-full bg-slate-100 dark:bg-dark-card rounded-full h-3 overflow-hidden p-0.5">
+                    <div id="progress-bar-fill"
+                        class="bg-gradient-to-r from-brand-600 to-indigo-600 h-full rounded-full transition-all duration-300 w-0">
+                    </div>
+                </div>
+
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                    <div id="step-1" class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                        <div
+                            class="w-6 h-6 rounded-full bg-slate-100 dark:bg-dark-card border border-slate-300 dark:border-slate-700 flex items-center justify-center step-icon">
+                            1</div>
+                        <span>Quét & Trích xuất Bố cục</span>
+                    </div>
+                    <div id="step-2" class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                        <div
+                            class="w-6 h-6 rounded-full bg-slate-100 dark:bg-dark-card border border-slate-300 dark:border-slate-700 flex items-center justify-center step-icon">
+                            2</div>
+                        <span>Lọc Text Layer & Bảng biểu</span>
+                    </div>
+                    <div id="step-3" class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                        <div
+                            class="w-6 h-6 rounded-full bg-slate-100 dark:bg-dark-card border border-slate-300 dark:border-slate-700 flex items-center justify-center step-icon">
+                            3</div>
+                        <span>Dịch En2Vi</span>
+                    </div>
+                    <div id="step-4" class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                        <div
+                            class="w-6 h-6 rounded-full bg-slate-100 dark:bg-dark-card border border-slate-300 dark:border-slate-700 flex items-center justify-center step-icon">
+                            4</div>
+                        <span>Cân chỉnh Font & Xuất PDF</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="result-card" class="hidden space-y-6">
+                <!-- Success Banner -->
+                <div
+                    class="bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center text-2xl shrink-0 shadow-md shadow-emerald-500/20">
+                            <i class="ph-bold ph-check"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-extrabold text-emerald-950 dark:text-emerald-200 text-lg">Dịch tài liệu
+                                thành công!</h4>
+                            <p class="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5"
+                                id="completion-summary-text">
+                                Bản dịch PDF đã hoàn tất. Bạn có thể xem trực tiếp hoặc tải file về máy.
+                            </p>
+                        </div>
+                    </div>
+
+
+                    <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                        <button onclick="downloadResult()"
+                            class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2">
+                            <i class="ph-bold ph-download-simple"></i>
+                            Tải file PDF (.pdf)
+                        </button>
+                        <a id="btn-open-preview-tab" href="#" target="_blank"
+                            class="px-4 py-2.5 rounded-xl bg-white dark:bg-dark-card border border-slate-200 dark:border-dark-border text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5">
+                            <i class="ph-bold ph-arrow-square-out text-brand-600 dark:text-brand-400"></i>
+                            Mở tab mới
+                        </a>
+                        <button onclick="resetFileSelection()"
+                            class="p-2.5 rounded-xl border border-slate-200 dark:border-dark-border text-slate-500 hover:text-slate-800 dark:hover:text-white"
+                            title="Dịch file mới">
+                            <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+
+                <div
+                    class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200/80 dark:border-dark-border overflow-hidden shadow-sm">
+
+                    <div
+                        class="px-6 py-3.5 border-b border-slate-200 dark:border-dark-border bg-slate-50/70 dark:bg-dark-card/50 flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <span
+                                class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                                <i class="ph-bold ph-eye text-brand-600 dark:text-brand-400 text-base"></i>
+                                Xem trước trực tiếp tài liệu PDF
+                            </span>
+                            <span id="preview-badge"
+                                class="px-2 py-0.5 rounded bg-brand-100 dark:bg-brand-950 text-brand-700 dark:text-brand-300 text-[11px] font-bold">Song
+                                song</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                            <button onclick="togglePreviewMode('split')" id="btn-mode-split"
+                                class="px-2.5 py-1.5 rounded-lg bg-white dark:bg-dark-surface shadow-xs text-slate-800 dark:text-white font-bold flex items-center gap-1 transition-all">
+                                <i class="ph-bold ph-columns text-sm"></i> Song song
+                            </button>
+                            <button onclick="togglePreviewMode('target')" id="btn-mode-target"
+                                class="px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-dark-surface transition-colors flex items-center gap-1">
+                                <i class="ph-bold ph-translate text-sm text-brand-600 dark:text-brand-400"></i> Chỉ
+                                Tiếng Việt
+                            </button>
+                            <button onclick="togglePreviewMode('original')" id="btn-mode-original"
+                                class="px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-dark-surface transition-colors flex items-center gap-1">
+                                <i class="ph-bold ph-file-text text-sm"></i> Chỉ Bản Gốc
+                            </button>
+                        </div>
+                    </div>
+
+
+                    <div class="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 bg-slate-100/60 dark:bg-dark-bg/60 min-h-[500px]"
+                        id="preview-grid">
+
+                        <div id="pane-original"
+                            class="bg-white dark:bg-dark-card rounded-xl border border-slate-200 dark:border-dark-border shadow-xs flex flex-col overflow-hidden">
+                            <div
+                                class="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/80 dark:bg-dark-surface/80">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <span class="text-base">🇬🇧</span>
+                                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate"
+                                        id="original-preview-title">Bản Gốc (Tiếng Anh)</span>
+                                </div>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <a id="btn-open-original-tab" href="#" target="_blank"
+                                        class="p-1.5 text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-card text-xs flex items-center gap-1 font-semibold transition-colors"
+                                        title="Mở trong tab mới">
+                                        <i class="ph-bold ph-arrow-square-out text-base"></i>
+                                        <span class="hidden sm:inline">Mở rộng</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="relative flex-grow bg-slate-200/40 dark:bg-slate-900/40 h-[520px] sm:h-[640px]">
+                                <iframe id="iframe-original" class="w-full h-full border-0 rounded-b-xl" src=""
+                                    title="Xem trước PDF gốc"></iframe>
+                                <div id="iframe-original-fallback"
+                                    class="hidden absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-slate-500 space-y-2">
+                                    <i class="ph-duotone ph-file-pdf text-4xl text-slate-400"></i>
+                                    <p class="text-sm">Trình duyệt không hỗ trợ nhúng trực tiếp file này.</p>
+                                    <a id="link-fallback-original" href="#" target="_blank"
+                                        class="text-xs font-bold text-brand-600 underline">Bấm vào đây để mở xem tài
+                                        liệu gốc</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="pane-translated-card"
+                            class="bg-white dark:bg-dark-card rounded-xl border-2 border-brand-500/40 dark:border-brand-500/30 shadow-xs flex flex-col overflow-hidden">
+                            <div
+                                class="px-4 py-2.5 border-b border-brand-100 dark:border-brand-900/50 flex justify-between items-center bg-brand-50/50 dark:bg-brand-950/30">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <span class="text-base">🇻🇳</span>
+                                    <span class="text-xs font-bold text-brand-700 dark:text-brand-300 truncate"
+                                        id="translated-preview-title">Bản Dịch AI (Tiếng Việt)</span>
+                                    <span
+                                        class="px-1.5 py-0.2 text-[10px] font-bold rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-300/40">Hoàn
+                                        tất</span>
+                                </div>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <a id="btn-open-translated-tab" href="#" target="_blank"
+                                        class="p-1.5 text-brand-700 dark:text-brand-300 hover:text-brand-900 rounded-lg hover:bg-brand-100/60 dark:hover:bg-brand-900/40 text-xs flex items-center gap-1 font-semibold transition-colors"
+                                        title="Mở trong tab mới">
+                                        <i class="ph-bold ph-arrow-square-out text-base"></i>
+                                        <span class="hidden sm:inline">Mở rộng</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="relative flex-grow bg-slate-200/40 dark:bg-slate-900/40 h-[520px] sm:h-[640px]">
+                                <iframe id="iframe-translated" class="w-full h-full border-0 rounded-b-xl" src=""
+                                    title="Xem trước PDF đã dịch"></iframe>
+                                <div id="iframe-translated-fallback"
+                                    class="hidden absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-slate-500 space-y-2">
+                                    <i class="ph-duotone ph-file-pdf text-4xl text-brand-500"></i>
+                                    <p class="text-sm">Trình duyệt không hỗ trợ nhúng trực tiếp file này.</p>
+                                    <a id="link-fallback-translated" href="#" target="_blank"
+                                        class="text-xs font-bold text-brand-600 underline">Bấm vào đây để mở xem bản
+                                        dịch</a>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="text-workspace-container" class="hidden space-y-6 transition-all duration-300">
+
+            <div
+                class="bg-white dark:bg-dark-surface p-4 rounded-2xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+
+                <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+                    <div
+                        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 dark:bg-dark-card border border-slate-200 dark:border-dark-border text-slate-800 dark:text-slate-200 font-semibold text-sm">
+                        <span>🇬🇧 English</span>
+                    </div>
+                    <i class="ph-bold ph-arrow-right text-slate-400"></i>
+                    <div
+                        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-50/50 dark:bg-brand-950/30 border border-brand-200/60 dark:border-brand-800/60 text-brand-900 dark:text-brand-200 font-semibold text-sm">
+                        <span>🇻🇳 Tiếng Việt</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">Chế độ
+                        dịch:</label>
+                    <div
+                        class="flex bg-slate-100 dark:bg-dark-card p-1 rounded-xl border border-slate-200 dark:border-dark-border gap-1 text-xs font-semibold">
+                        <button onclick="setTextBeam(1)" id="text-beam-1"
+                            class="px-3 py-1.5 rounded-lg bg-white dark:bg-dark-surface text-slate-900 dark:text-white shadow-xs font-bold flex items-center gap-1.5 transition-all">
+                            <i class="ph-bold ph-lightning text-amber-500"></i> Siêu tốc
+                        </button>
+                        <button onclick="setTextBeam(4)" id="text-beam-4"
+                            class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition-all">
+                            <i class="ph-bold ph-target text-brand-500"></i> Chuẩn xác
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+
+                <div
+                    class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col h-[380px] focus-within:ring-2 focus-within:ring-brand-500 transition-all">
+                    <div
+                        class="px-5 py-3 border-b border-slate-100 dark:border-dark-border flex justify-between items-center bg-slate-50/50 dark:bg-dark-card/40">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Văn bản Tiếng Anh</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="insertSampleText()"
+                                class="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline">
+                                Thử đoạn mẫu
+                            </button>
+                            <button onclick="clearSourceText()"
+                                class="text-slate-400 hover:text-red-500 p-1 rounded-lg transition-colors"
+                                title="Xóa nội dung">
+                                <i class="ph-bold ph-trash text-base"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <textarea id="live-source-text" placeholder="Nhập hoặc dán văn bản Tiếng Anh cần dịch tại đây..."
+                        class="flex-grow w-full p-5 bg-transparent resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none text-base leading-relaxed"
+                        oninput="handleLiveTextTranslate()"></textarea>
+
+                    <div
+                        class="px-5 py-3 bg-white dark:bg-dark-surface border-t border-slate-100 dark:border-dark-border flex justify-between items-center text-xs text-slate-400 font-medium">
+                        <div class="flex gap-2">
+                            <button onclick="pasteClipboard()"
+                                class="hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1">
+                                <i class="ph-bold ph-clipboard-text"></i> Dán từ bộ nhớ
+                            </button>
+                        </div>
+                        <div>
+                            <span id="text-word-count">0 từ</span> • <span id="text-char-count">0/5000 ký tự</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="bg-slate-50/70 dark:bg-dark-card/60 rounded-2xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col h-[380px] relative">
+                    <div
+                        class="px-5 py-3 border-b border-slate-200/60 dark:border-dark-border flex justify-between items-center bg-slate-100/50 dark:bg-dark-card/80">
+                        <span
+                            class="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="ph-bold ph-sparkle"></i> Bản Dịch Tiếng Việt
+                        </span>
+                        <span id="live-status-pill" class="text-[11px] font-bold text-slate-400">Sẵn sàng</span>
+                    </div>
+
+                    <div class="flex-grow p-5 overflow-y-auto">
+                        <div id="live-target-text"
+                            class="text-slate-800 dark:text-slate-100 text-base leading-relaxed font-sans whitespace-pre-wrap select-text">
+                            <span class="text-slate-400 italic">Bản dịch sẽ hiển thị tự động tại đây khi bạn nhập văn
+                                bản...</span>
+                        </div>
+                    </div>
+
+                    <div
+                        class="px-5 py-3 bg-white dark:bg-dark-surface border-t border-slate-200/60 dark:border-dark-border flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <button onclick="speakTranslation()"
+                                class="p-2 text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-card transition-colors"
+                                title="Đọc bản dịch">
+                                <i class="ph-bold ph-speaker-high text-lg"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="copyTranslation()"
+                                class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
+                                <i class="ph-bold ph-copy"></i>
+                                Sao chép
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Thông Tin Đề Tài & Kiến Trúc Kỹ Thuật -->
+    <div id="about-modal-backdrop" onclick="toggleAboutModal()"
+        class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+    </div>
+    <div id="about-modal"
+        class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-white dark:bg-dark-surface rounded-2xl border border-slate-200 dark:border-dark-border shadow-2xl p-6 sm:p-8 opacity-0 pointer-events-none transform scale-95 transition-all duration-300 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-start pb-4 border-b border-slate-200 dark:border-dark-border">
+            <div class="flex items-center gap-3">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-950/60 text-brand-600 dark:text-brand-400 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                    <i class="ph-bold ph-graduation-cap"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">DocuVi — Hệ Thống Dịch
+                        Thuật PDF Giữ Nguyên Định Dạng</h3>
+                </div>
+            </div>
+            <button onclick="toggleAboutModal()"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white">
+                <i class="ph-bold ph-x text-xl"></i>
+            </button>
+        </div>
+
+        <div class="py-5 space-y-5 text-sm">
+            <!-- Thông tin sinh viên & Môn học -->
+            <div
+                class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50 dark:bg-dark-card border border-slate-200/60 dark:border-dark-border text-xs">
+                <div>
+                    <span class="text-slate-400 block font-medium">Đề tài:</span>
+                    <span class="font-bold text-slate-800 dark:text-slate-100 text-sm">Dịch PDF Giữ Bố Cục Bằng
+                        AI</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block font-medium">Môn học:</span>
+                    <span class="font-bold text-slate-800 dark:text-slate-100 text-sm">Lập trình Python</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block font-medium">Mô hình AI:</span>
+                    <span class="font-semibold text-brand-600 dark:text-brand-400">vinai/vinai-translate-en2vi</span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block font-medium">Năm học:</span>
+                    <span class="font-semibold text-slate-700 dark:text-slate-300">2025 - 2026</span>
+                </div>
+            </div>
+
+            <!-- Mục tiêu & Giải pháp kỹ thuật -->
+            <div>
+                <h4 class="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                    <i class="ph-bold ph-target text-brand-600"></i> Mục tiêu & Giải pháp cốt lõi
+                </h4>
+                <p class="text-slate-600 dark:text-slate-300 leading-relaxed text-xs">
+                    Ứng dụng giải quyết bài toán dịch tài liệu PDF mà các công cụ thông thường không làm được:
+                    <strong>bảo toàn định dạng, hình ảnh, bảng biểu và vị trí khối chữ</strong>. Sử dụng mô hình
+                    Deep Learning của VinAI kết hợp thuật toán co dãn font chữ thích ứng (Dynamic Font Fitting) trên
+                    font Times New Roman chuẩn Unicode tiếng Việt.
+                </p>
+            </div>
+
+            <!-- Quy trình Pipeline -->
+            <div>
+                <h4 class="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                    <i class="ph-bold ph-git-branch text-indigo-600"></i> Sơ đồ quy trình kỹ thuật (Architecture
+                    Pipeline)
+                </h4>
+                <div class="space-y-2 text-xs">
+                    <div
+                        class="p-2.5 rounded-lg bg-slate-50 dark:bg-dark-card border border-slate-200/60 dark:border-dark-border flex items-start gap-2.5">
+                        <span
+                            class="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
+                        <div><strong>Trích xuất Bố cục (Layout Extraction):</strong> Sử dụng <code>PyMuPDF</code> quét
+                            trang, nhận diện cấu trúc phân đoạn, dòng, kích cỡ font và tách biệt hình ảnh, bảng biểu.
+                        </div>
+                    </div>
+                    <div
+                        class="p-2.5 rounded-lg bg-slate-50 dark:bg-dark-card border border-slate-200/60 dark:border-dark-border flex items-start gap-2.5">
+                        <span
+                            class="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
+                        <div><strong>Tiền xử lý & Gom nhóm Batch:</strong> Tách câu thông minh, sắp xếp theo độ dài để
+                            giảm thiểu padding thừa, tối đa hóa hiệu suất GPU.</div>
+                    </div>
+                    <div
+                        class="p-2.5 rounded-lg bg-slate-50 dark:bg-dark-card border border-slate-200/60 dark:border-dark-border flex items-start gap-2.5">
+                        <span
+                            class="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
+                        <div><strong>Dịch máy Neural Seq2Seq:</strong> Suy luận trên mô hình
+                            <code>vinai/vinai-translate-en2vi</code> với PyTorch FP16 trên GPU CUDA.</div>
+                    </div>
+                    <div
+                        class="p-2.5 rounded-lg bg-slate-50 dark:bg-dark-card border border-slate-200/60 dark:border-dark-border flex items-start gap-2.5">
+                        <span
+                            class="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">4</span>
+                        <div><strong>Tái tạo & Dynamic Font Fitting:</strong> Áp dụng Redaction xóa chữ cũ, tự động tính
+                            toán cỡ font Times New Roman tối ưu và chèn bản dịch tiếng Việt vào vị trí an toàn.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-4 border-t border-slate-200 dark:border-dark-border flex justify-end">
+            <button onclick="toggleAboutModal()"
+                class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm">
+                Đóng
+            </button>
+        </div>
+    </div>
+
+    <div id="history-drawer-backdrop" onclick="toggleHistoryDrawer()"
+        class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 opacity-0 pointer-events-none transition-opacity duration-300">
+    </div>
+    <aside id="history-drawer"
+        class="fixed top-0 right-0 z-50 w-full max-w-md h-full bg-white dark:bg-dark-surface border-l border-slate-200 dark:border-dark-border shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+        <div
+            class="p-5 border-b border-slate-200 dark:border-dark-border flex justify-between items-center bg-slate-50 dark:bg-dark-card">
+            <div class="flex items-center gap-2">
+                <i class="ph-bold ph-clock-counter-clockwise text-xl text-brand-600"></i>
+                <h3 class="font-extrabold text-slate-900 dark:text-white text-base">Lịch Sử Dịch Thuật</h3>
+            </div>
+            <button onclick="toggleHistoryDrawer()"
+                class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white">
+                <i class="ph-bold ph-x text-xl"></i>
+            </button>
+        </div>
+
+        <div id="history-list" class="flex-grow p-4 space-y-3 overflow-y-auto">
+            <!-- Empty State -->
+            <div id="history-empty" class="text-center py-12 text-slate-400 space-y-2">
+                <i class="ph-duotone ph-ghost text-4xl"></i>
+                <p class="text-sm font-semibold">Chưa có lịch sử dịch nào</p>
+            </div>
+        </div>
+
+        <div
+            class="p-4 border-t border-slate-200 dark:border-dark-border bg-slate-50 dark:bg-dark-card flex justify-between gap-3">
+            <button onclick="clearHistory()"
+                class="px-3 py-2 rounded-xl border border-slate-200 dark:border-dark-border text-xs font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
+                Xóa tất cả
+            </button>
+            <button onclick="exportHistoryJSON()"
+                class="px-3 py-2 rounded-xl bg-slate-200 dark:bg-dark-border text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-300 transition-colors">
+                Xuất file JSON
+            </button>
+        </div>
+    </aside>
+
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <footer
+        class="mt-auto border-t border-slate-200/80 dark:border-dark-border py-6 bg-white dark:bg-dark-surface text-center text-xs text-slate-400">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+                &copy; 2026 <span class="font-bold text-slate-700 dark:text-slate-200">DocuVi</span>
+            </div>
+            <div class="flex items-center gap-4 text-slate-500">
+                <button onclick="toggleAboutModal()"
+                    class="hover:text-brand-600 dark:hover:text-brand-400 hover:underline flex items-center gap-1">
+                    <i class="ph-bold ph-info"></i> Kiến trúc & Thông tin đề tài
+                </button>
+                <span>•</span>
+                <span class="text-slate-400">Mô hình: VinAI En2Vi</span>
+                <span>•</span>
+                <span class="text-slate-400">Engine: PyMuPDF + PyTorch</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const state = {
+            activeTab: "doc",
+            theme: "light",
+            selectedFile: null,
+            downloadUrl: null,
+            viewUrl: null,
+            originalViewUrl: null,
+            textBeam: 1,
+            history: []
+        };
+
+        const $ = id => document.getElementById(id);
+        const fileInput = $("file-input");
+        const dropzoneCard = $("dropzone-card");
+        const fileSelectedCard = $("file-selected-card");
+        const progressCard = $("progress-card");
+        const resultCard = $("result-card");
+        const liveSourceText = $("live-source-text");
+        const liveTargetText = $("live-target-text");
+
+        window.addEventListener("DOMContentLoaded", () => {
+            initDragAndDrop();
+            loadHistoryFromStorage();
+            fetchSystemStatus();
+        });
+
+        async function fetchSystemStatus() {
+            try {
+                const res = await fetch("/api/system-status");
+                const data = await res.json();
+                if (data.status === "online") {
+                    const text = $("system-status-text");
+                    const pill = $("system-status-pill");
+                    if (text) {
+                        text.textContent = `${data.device_name || data.device} Active`;
+                    }
+                    if (pill) {
+                        pill.title = `Mô hình: ${data.model} | Thiết bị: ${data.device_name || data.device}`;
+                    }
+                }
+            } catch (e) {
+                // Keep default status
+            }
+        }
+
+        function switchTab(tab) {
+            state.activeTab = tab;
+            $("doc-workspace-container").classList.toggle("hidden", tab !== "doc");
+            $("text-workspace-container").classList.toggle("hidden", tab !== "text");
+
+            ["nav-doc-btn", "nav-text-btn", "mob-doc-btn", "mob-text-btn"].forEach(id => {
+                const button = $(id);
+                if (!button) return;
+                const selected = id.includes("doc") ? tab === "doc" : tab === "text";
+                button.className = id.startsWith("mob-")
+                    ? `flex-1 py-2 rounded-lg text-xs font-${selected ? "bold" : "medium"} ${selected ? "bg-white text-slate-900 shadow-sm dark:bg-dark-card dark:text-white" : "text-slate-600 dark:text-slate-400"}`
+                    : `px-4 py-1.5 rounded-lg text-sm font-${selected ? "semibold" : "medium"} transition-all ${selected ? "shadow-sm bg-white text-slate-900 dark:bg-dark-card dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`;
+            });
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle("dark");
+            state.theme = isDark ? "dark" : "light";
+            $("theme-icon").className = `ph-bold ${isDark ? "ph-sun" : "ph-moon"} text-lg`;
+            showToast(`Đã chuyển sang Giao diện ${isDark ? "Tối" : "Sáng"}`);
+        }
+
+        function initDragAndDrop() {
+            ["dragenter", "dragover", "dragleave", "drop"].forEach(eventName => {
+                dropzoneCard.addEventListener(eventName, event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                });
+            });
+
+            ["dragenter", "dragover"].forEach(eventName => {
+                dropzoneCard.addEventListener(eventName, () => dropzoneCard.classList.add("dropzone-active"));
+            });
+            ["dragleave", "drop"].forEach(eventName => {
+                dropzoneCard.addEventListener(eventName, () => dropzoneCard.classList.remove("dropzone-active"));
+            });
+
+            dropzoneCard.addEventListener("drop", event => {
+                if (event.dataTransfer.files.length) processFile(event.dataTransfer.files[0]);
+            });
+        }
+
+        function handleFileSelect(event) {
+            if (event.target.files.length) processFile(event.target.files[0]);
+        }
+
+        function processFile(file) {
+            if (!file.name.toLowerCase().endsWith(".pdf")) {
+                showToast("Backend hiện chỉ hỗ trợ file PDF.");
+                return;
+            }
+            if (file.size > 50 * 1024 * 1024) {
+                showToast("Dung lượng file vượt quá giới hạn 50MB! Vui lòng chọn file nhỏ hơn.");
+                return;
+            }
+            state.selectedFile = {
+                file,
+                name: file.name,
+                size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
+                pages: "sẽ được xử lý"
+            };
+            state.downloadUrl = null;
+            updateFileCardUI();
+            showToast(`Đã chọn file: ${file.name}`);
+        }
+
+        function loadSampleFile(type) {
+            if (type === "test1") {
+                state.selectedFile = {
+                    name: "test1.pdf",
+                    serverFilename: "test1.pdf",
+                    size: "86.5 KB",
+                    pages: "1"
+                };
+            } else {
+                state.selectedFile = {
+                    name: "Best_Online_Therapy_for_Kids.pdf",
+                    serverFilename: "Best_Online_Therapy_for_Kids.pdf",
+                    size: "66.9 KB",
+                    pages: "2"
+                };
+            }
+
+            updateFileCardUI();
+            showToast(`Đã chọn file mẫu: ${state.selectedFile.name}`);
+        }
+
+        function updateFileCardUI() {
+            const file = state.selectedFile;
+            dropzoneCard.classList.add("hidden");
+            fileSelectedCard.classList.remove("hidden");
+            progressCard.classList.add("hidden");
+            resultCard.classList.add("hidden");
+
+            $("file-name-display").textContent = file.name;
+            $("file-size-display").textContent = file.size;
+            $("file-pages-display").textContent = `${file.pages} trang ước tính`;
+
+            $("file-icon").className = "ph-duotone ph-file-pdf text-3xl";
+            $("file-icon-bg").className = "w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0";
+        }
+
+        function resetFileSelection() {
+            state.selectedFile = null;
+            state.downloadUrl = null;
+            state.viewUrl = null;
+            state.originalViewUrl = null;
+            fileInput.value = "";
+            if ($("iframe-original")) $("iframe-original").src = "";
+            if ($("iframe-translated")) $("iframe-translated").src = "";
+            dropzoneCard.classList.remove("hidden");
+            fileSelectedCard.classList.add("hidden");
+            progressCard.classList.add("hidden");
+            resultCard.classList.add("hidden");
+        }
+
+        async function startDocTranslation() {
+            if (!state.selectedFile?.file && !state.selectedFile?.serverFilename) {
+                showToast("Hãy chọn một file PDF từ máy tính hoặc dùng file mẫu.");
+                return;
+            }
+
+            fileSelectedCard.classList.add("hidden");
+            progressCard.classList.remove("hidden");
+            resultCard.classList.add("hidden");
+            window.docStartTime = Date.now();
+            $("progress-bar-fill").style.width = "5%";
+            $("progress-percent").textContent = "5%";
+            $("progress-status-text").textContent = "Đang gửi PDF đến AI Engine...";
+
+            let percent = 5;
+            if (window.docProgressTimer) clearInterval(window.docProgressTimer);
+            window.docProgressTimer = setInterval(() => {
+                percent = Math.min(percent + 1, 92);
+                $("progress-bar-fill").style.width = `${percent}%`;
+                $("progress-percent").textContent = `${percent}%`;
+                if (percent === 30) $("progress-status-text").textContent = "Trích xuất layout, bảng biểu và văn bản...";
+                else if (percent === 65) $("progress-status-text").textContent = "Mô hình Neural AI đang dịch toàn bộ nội dung...";
+                else if (percent === 85) $("progress-status-text").textContent = "Đang căn chỉnh font và tái tạo tài liệu PDF...";
+            }, 1000);
+
+            try {
+                const formData = new FormData();
+                if (state.selectedFile.file) {
+                    formData.append("file", state.selectedFile.file);
+                } else if (state.selectedFile.serverFilename) {
+                    formData.append("filename", state.selectedFile.serverFilename);
+                }
+                const beamSelect = $("doc-beam-select");
+                formData.append("num_beams", beamSelect ? beamSelect.value : "1");
+
+                const response = await fetch("/api/translate-pdf", { method: "POST", body: formData });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || "Backend không thể dịch file.");
+
+                pollJobStatus(data.job_id);
+            } catch (error) {
+                if (window.docProgressTimer) clearInterval(window.docProgressTimer);
+                progressCard.classList.add("hidden");
+                fileSelectedCard.classList.remove("hidden");
+                showToast(error.message || "Không kết nối được backend. Hãy kiểm tra cửa sổ Terminal.");
+            }
+        }
+
+        function pollJobStatus(jobId) {
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/job/${jobId}/status`);
+                    if (!response.ok) {
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.error || `Lỗi kiểm tra trạng thái job (${response.status})`);
+                    }
+                    const job = await response.json();
+
+                    if (job.status === "done") {
+                        clearInterval(pollInterval);
+                        if (window.docProgressTimer) clearInterval(window.docProgressTimer);
+
+                        const result = job.result;
+                        state.downloadUrl = result.download_url;
+                        state.viewUrl = result.view_url;
+                        state.originalViewUrl = result.original_view_url;
+
+                        $("progress-bar-fill").style.width = "100%";
+                        $("progress-percent").textContent = "100%";
+                        $("progress-status-text").textContent = "Dịch hoàn tất! Đang nạp bản xem trước trực tiếp...";
+                        setTimeout(() => finishDocTranslation(result), 350);
+                    } else if (job.status === "error") {
+                        clearInterval(pollInterval);
+                        if (window.docProgressTimer) clearInterval(window.docProgressTimer);
+                        progressCard.classList.add("hidden");
+                        fileSelectedCard.classList.remove("hidden");
+                        showToast(job.error || "Lỗi khi dịch tài liệu PDF.");
+                    }
+                } catch (error) {
+                    clearInterval(pollInterval);
+                    if (window.docProgressTimer) clearInterval(window.docProgressTimer);
+                    progressCard.classList.add("hidden");
+                    fileSelectedCard.classList.remove("hidden");
+                    showToast(error.message || "Không thể kiểm tra trạng thái xử lý.");
+                }
+            }, 2000);
+        }
+
+        function finishDocTranslation(data) {
+            progressCard.classList.add("hidden");
+            resultCard.classList.remove("hidden");
+            const file = state.selectedFile;
+            const elapsed = window.docStartTime ? ((Date.now() - window.docStartTime) / 1000).toFixed(1) : "2.5";
+            $("completion-summary-text").textContent = `Hoàn thành sau ${elapsed} giây • Bản dịch "${data.output_name}" đã sẵn sàng. Xem trực tiếp bên dưới.`;
+
+            const btnOpenTab = $("btn-open-preview-tab");
+            if (btnOpenTab && data.view_url) {
+                btnOpenTab.href = data.view_url;
+            }
+
+            const iframeOriginal = $("iframe-original");
+            if (iframeOriginal) {
+                const origSrc = data.original_view_url || (file.file ? URL.createObjectURL(file.file) : "");
+                if (origSrc) {
+                    iframeOriginal.src = origSrc + "#toolbar=1&navpanes=0";
+                    $("btn-open-original-tab").href = origSrc;
+                    $("link-fallback-original").href = origSrc;
+                }
+                $("original-preview-title").textContent = `Bản Gốc: ${data.original_file || file.name}`;
+            }
+
+            const iframeTranslated = $("iframe-translated");
+            if (iframeTranslated && data.view_url) {
+                iframeTranslated.src = data.view_url + "#toolbar=1&navpanes=0";
+                $("btn-open-translated-tab").href = data.view_url;
+                $("link-fallback-translated").href = data.view_url;
+                $("translated-preview-title").textContent = `Bản Dịch: ${data.output_name}`;
+            }
+
+            addHistoryItem({
+                type: "document",
+                title: file.name,
+                meta: `${file.size} • PDF đã dịch`,
+                time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                downloadUrl: data.download_url,
+                viewUrl: data.view_url,
+                originalViewUrl: data.original_view_url
+            });
+            showToast("Dịch PDF thành công! Đang hiển thị bản xem trước.");
+        }
+
+        function togglePreviewMode(mode) {
+            const paneOriginal = $("pane-original");
+            const paneTranslated = $("pane-translated-card");
+            const grid = $("preview-grid");
+            const badge = $("preview-badge");
+
+            if (mode === "split") {
+                paneOriginal.classList.remove("hidden");
+                paneTranslated.classList.remove("hidden");
+                grid.className = "p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 bg-slate-100/60 dark:bg-dark-bg/60 min-h-[500px]";
+                badge.textContent = "Song song";
+            } else if (mode === "target") {
+                paneOriginal.classList.add("hidden");
+                paneTranslated.classList.remove("hidden");
+                grid.className = "p-4 sm:p-6 grid grid-cols-1 gap-4 lg:gap-6 bg-slate-100/60 dark:bg-dark-bg/60 min-h-[500px]";
+                badge.textContent = "Chỉ Tiếng Việt";
+            } else if (mode === "original") {
+                paneOriginal.classList.remove("hidden");
+                paneTranslated.classList.add("hidden");
+                grid.className = "p-4 sm:p-6 grid grid-cols-1 gap-4 lg:gap-6 bg-slate-100/60 dark:bg-dark-bg/60 min-h-[500px]";
+                badge.textContent = "Chỉ Bản Gốc";
+            }
+
+            ["split", "target", "original"].forEach(m => {
+                const btn = $("btn-mode-" + m);
+                if (!btn) return;
+                btn.className = m === mode
+                    ? "px-2.5 py-1.5 rounded-lg bg-white dark:bg-dark-surface shadow-xs text-slate-800 dark:text-white font-bold flex items-center gap-1 transition-all"
+                    : "px-2.5 py-1.5 rounded-lg hover:bg-white dark:hover:bg-dark-surface transition-colors flex items-center gap-1";
+            });
+        }
+
+        let liveTranslateTimer;
+
+        function handleLiveTextTranslate() {
+            clearTimeout(liveTranslateTimer);
+            const text = liveSourceText.value;
+            $("text-char-count").textContent = `${text.length}/5000 ký tự`;
+            $("text-word-count").textContent = `${text.trim() ? text.trim().split(/\s+/).length : 0} từ`;
+
+            if (!text.trim()) {
+                liveTargetText.innerHTML = '<span class="text-slate-400 italic">Bản dịch sẽ hiển thị tự động tại đây khi bạn nhập văn bản...</span>';
+                $("live-status-pill").textContent = "Sẵn sàng";
+                return;
+            }
+
+            $("live-status-pill").textContent = "Đang dịch...";
+            liveTranslateTimer = setTimeout(() => performTextTranslation(text), 400);
+        }
+
+        async function performTextTranslation(text) {
+            try {
+                const response = await fetch("/api/translate-text", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text, num_beams: state.textBeam || 1 })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || "Không thể dịch văn bản.");
+                // Avoid showing an old result if the user typed again while the request was running.
+                if (liveSourceText.value === text) {
+                    liveTargetText.textContent = data.translation;
+                    $("live-status-pill").textContent = "Hoàn thành";
+                }
+            } catch (error) {
+                if (liveSourceText.value === text) {
+                    liveTargetText.textContent = error.message || "Không kết nối được backend Python.";
+                    $("live-status-pill").textContent = "Lỗi";
+                }
+            }
+        }
+
+        function setTextBeam(beam) {
+            state.textBeam = beam;
+            [1, 4].forEach(b => {
+                const btn = $("text-beam-" + b);
+                if (!btn) return;
+                btn.className = b === beam
+                    ? "px-3 py-1.5 rounded-lg bg-white dark:bg-dark-surface text-slate-900 dark:text-white shadow-xs font-bold flex items-center gap-1.5 transition-all"
+                    : "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition-all";
+            });
+            handleLiveTextTranslate();
+        }
+
+        function insertSampleText() {
+            liveSourceText.value = "Artificial Intelligence is transforming how global enterprises process technical documentation and legal contracts.";
+            handleLiveTextTranslate();
+        }
+
+        function clearSourceText() {
+            liveSourceText.value = "";
+            handleLiveTextTranslate();
+        }
+
+        async function pasteClipboard() {
+            try {
+                liveSourceText.value = await navigator.clipboard.readText();
+                handleLiveTextTranslate();
+                showToast("Đã dán văn bản từ clipboard");
+            } catch {
+                showToast("Không thể truy cập clipboard");
+            }
+        }
+
+        async function copyTranslation() {
+            const text = liveTargetText.textContent;
+            if (!text || text.includes("Bản dịch sẽ hiển thị")) return;
+
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch {
+                const temp = document.createElement("textarea");
+                temp.value = text;
+                document.body.appendChild(temp);
+                temp.select();
+                document.execCommand("copy");
+                temp.remove();
+            }
+            showToast("Đã sao chép bản dịch vào bộ nhớ tạm!");
+        }
+
+        function speakTranslation() {
+            const text = liveTargetText.textContent;
+            if (!text || text.includes("Bản dịch sẽ hiển thị")) return;
+
+            if (!("speechSynthesis" in window)) {
+                showToast("Trình duyệt không hỗ trợ đọc âm thanh");
+                return;
+            }
+
+            const speech = new SpeechSynthesisUtterance(text);
+            speech.lang = "vi-VN";
+            window.speechSynthesis.speak(speech);
+            showToast("Đang phát âm thanh...");
+        }
+
+        function toggleHistoryDrawer() {
+            const drawer = $("history-drawer");
+            const backdrop = $("history-drawer-backdrop");
+            const isClosed = drawer.classList.contains("translate-x-full");
+            drawer.classList.toggle("translate-x-full", !isClosed);
+            backdrop.classList.toggle("opacity-0", !isClosed);
+            backdrop.classList.toggle("pointer-events-none", !isClosed);
+        }
+
+        function toggleAboutModal() {
+            const modal = $("about-modal");
+            const backdrop = $("about-modal-backdrop");
+            const isClosed = modal.classList.contains("opacity-0");
+            modal.classList.toggle("opacity-0", !isClosed);
+            modal.classList.toggle("pointer-events-none", !isClosed);
+            modal.classList.toggle("scale-95", !isClosed);
+            backdrop.classList.toggle("opacity-0", !isClosed);
+            backdrop.classList.toggle("pointer-events-none", !isClosed);
+        }
+
+        function loadHistoryFromStorage() {
+            try {
+                state.history = JSON.parse(localStorage.getItem("docuViHistory") || localStorage.getItem("luminaDocHistory") || "[]");
+            } catch {
+                state.history = [];
+            }
+            updateHistoryUI();
+        }
+
+        function addHistoryItem(item) {
+            state.history.unshift(item);
+            localStorage.setItem("docuViHistory", JSON.stringify(state.history));
+            updateHistoryUI();
+        }
+
+        function updateHistoryUI() {
+            const list = $("history-list");
+            $("history-badge").textContent = state.history.length;
+
+            if (!state.history.length) {
+                list.innerHTML = "";
+                const empty = document.createElement("div");
+                empty.id = "history-empty";
+                empty.className = "text-center py-12 text-slate-400 space-y-2";
+                empty.innerHTML = '<i class="ph-duotone ph-ghost text-4xl"></i><p class="text-sm font-semibold">Chưa có lịch sử dịch nào</p>';
+                list.appendChild(empty);
+                return;
+            }
+
+            list.innerHTML = state.history.map((item, index) => `
+                <div class="p-3 bg-slate-50 dark:bg-dark-card rounded-xl border border-slate-200/60 dark:border-dark-border flex justify-between items-center text-xs hover:border-brand-500/50 transition-colors">
+                    <div class="cursor-pointer overflow-hidden pr-2 flex-grow" onclick="previewHistoryDoc(${index})">
+                        <div class="font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                            <i class="ph-bold ph-file-pdf text-red-500 text-sm shrink-0"></i>
+                            <span class="truncate">${item.title}</span>
+                        </div>
+                        <div class="text-slate-400 mt-0.5 text-[11px]">${item.meta} • ${item.time}</div>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="previewHistoryDoc(${index})" class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-200/60 dark:hover:bg-dark-surface rounded-lg transition-colors" title="Xem trước">
+                            <i class="ph-bold ph-eye text-base"></i>
+                        </button>
+                        <button onclick="downloadHistoryItem(${index})" class="p-1.5 text-brand-600 hover:bg-brand-50 dark:hover:bg-dark-surface rounded-lg transition-colors" title="Tải xuống">
+                            <i class="ph-bold ph-download-simple text-base"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        function previewHistoryDoc(index) {
+            const item = state.history[index];
+            if (!item) return;
+
+            switchTab("doc");
+            dropzoneCard.classList.add("hidden");
+            fileSelectedCard.classList.add("hidden");
+            progressCard.classList.add("hidden");
+            resultCard.classList.remove("hidden");
+
+            state.downloadUrl = item.downloadUrl || null;
+            state.viewUrl = item.viewUrl || null;
+            state.originalViewUrl = item.originalViewUrl || null;
+
+            $("completion-summary-text").textContent = `Đang xem lại bản dịch: ${item.title}`;
+
+            const btnOpenTab = $("btn-open-preview-tab");
+            if (btnOpenTab && item.viewUrl) {
+                btnOpenTab.href = item.viewUrl;
+            }
+
+            if ($("iframe-translated") && item.viewUrl) {
+                $("iframe-translated").src = item.viewUrl + "#toolbar=1&navpanes=0";
+                $("btn-open-translated-tab").href = item.viewUrl;
+                $("link-fallback-translated").href = item.viewUrl;
+                $("translated-preview-title").textContent = `Bản Dịch: ${item.title}`;
+            }
+
+            if ($("iframe-original") && item.originalViewUrl) {
+                $("iframe-original").src = item.originalViewUrl + "#toolbar=1&navpanes=0";
+                $("btn-open-original-tab").href = item.originalViewUrl;
+                $("link-fallback-original").href = item.originalViewUrl;
+                $("original-preview-title").textContent = `Bản Gốc: ${item.title}`;
+                togglePreviewMode("split");
+            } else {
+                togglePreviewMode("target");
+            }
+
+            toggleHistoryDrawer();
+            showToast(`Đã nạp bản xem trước: ${item.title}`);
+        }
+
+        function downloadHistoryItem(index) {
+            const item = state.history[index];
+            if (!item || !item.downloadUrl) {
+                showToast("Không tìm thấy liên kết tải file.");
+                return;
+            }
+            const link = document.createElement("a");
+            link.href = item.downloadUrl;
+            link.download = `translated_${item.title}`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        function clearHistory() {
+            state.history = [];
+            localStorage.removeItem("docuViHistory");
+            localStorage.removeItem("luminaDocHistory");
+            updateHistoryUI();
+            showToast("Đã xóa toàn bộ lịch sử dịch");
+        }
+
+        function exportHistoryJSON() {
+            const blob = new Blob([JSON.stringify(state.history, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "DocuVi_History.json";
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadResult() {
+            if (!state.downloadUrl) {
+                showToast("Chưa có file PDF đã dịch để tải.");
+                return;
+            }
+            const link = document.createElement("a");
+            link.href = state.downloadUrl;
+            link.download = state.selectedFile ? `translated_${state.selectedFile.name}` : "DocuVi_translated.pdf";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        }
+
+        function showToast(message) {
+            const toast = document.createElement("div");
+            toast.className = "bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-2.5 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto";
+            toast.textContent = "ℹ " + message;
+            $("toast-container").appendChild(toast);
+
+            setTimeout(() => toast.classList.remove("translate-y-2", "opacity-0"), 10);
+            setTimeout(() => {
+                toast.classList.add("opacity-0", "translate-y-2");
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+    </script>
+</body>
+
+</html>

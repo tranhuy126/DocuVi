@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project temporary and archive files
+project.zip
+archive.zip
+archive/
+*.log
+
+# Uploaded and output PDFs (keep directory structure via .gitkeep, ignore all PDF files)
+uploads/*
+!uploads/.gitkeep
+outputs/*
+!outputs/.gitkeep
