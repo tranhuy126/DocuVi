@@ -2,6 +2,7 @@ import os
 import pymupdf as fitz
 import sys
 import time
+import gc
 
 from pdf_engine import (
     BASE_DIR,
@@ -222,6 +223,10 @@ def translate_pdf_document(
 
     finally:
         scratch_tester.close()
+        # Giải phóng các danh sách trung gian và kích hoạt thu gom rác
+        all_page_elements = None
+        scratch_tester = None
+        gc.collect()
 
 
 def translate_pdf(
@@ -231,9 +236,15 @@ def translate_pdf(
     num_beams: int = 1,
 ):
     """Dịch file PDF từ đường dẫn và lưu file kết quả."""
-    with fitz.open(input_path) as doc:
+    doc = fitz.open(input_path)
+    try:
         translate_pdf_document(doc, batch_size=batch_size, num_beams=num_beams)
         doc.save(output_path, garbage=4, deflate=True, clean=True)
+    finally:
+        if not doc.is_closed:
+            doc.close()
+        doc = None
+        gc.collect()
 
 
 def translate_pdf_bytes(

@@ -69,6 +69,27 @@ def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
 
     horizontal_clusters = split_horizontal_lines(raw_lines)
 
+    # Kiểm tra đặc trưng bảng biểu không viền / lưới số liệu tài chính:
+    # 1. Có từ 3 cụm cột song song trở lên trong cùng một khối.
+    # 2. Hoặc có từ 2 cột song song và ít nhất 1 cột chứa nhiều số liệu/ký hiệu tài chính (>30% dòng không có chữ cái).
+    is_borderless_table = len(horizontal_clusters) >= 3
+    if not is_borderless_table and len(horizontal_clusters) >= 2:
+        for c in horizontal_clusters:
+            non_alpha_count = sum(
+                1 for l in c if not any(ch.isalpha() for ch in l.get("text", ""))
+            )
+            if non_alpha_count >= 2 and (non_alpha_count / len(c)) >= 0.30:
+                is_borderless_table = True
+                break
+
+    if is_borderless_table:
+        print(
+            f"[CẢNH BÁO BỐ CỤC] Phát hiện cấu trúc bảng biểu không viền / lưới số liệu "
+            f"({len(horizontal_clusters)} cột song song). Giữ nguyên từng ô/dòng độc lập "
+            f"để bảo toàn tuyệt đối liên kết hàng - cột của số liệu."
+        )
+        return [[line] for cluster in horizontal_clusters for line in cluster]
+
     final_groups = []
     for cluster in horizontal_clusters:
         if len(cluster) <= 1:

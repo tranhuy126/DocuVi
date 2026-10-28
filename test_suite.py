@@ -357,6 +357,121 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             )
         print("✓ Test Case 12: File PDF đầu ra mở lại hợp lệ và trích xuất đúng Unicode tiếng Việt - ĐẠT")
 
+    # -------------------------------------------------------------------------
+    # Trường hợp 13: Tiền xử lý không làm mất tiêu đề ngắn, tab, khoảng trắng và định dạng
+    # -------------------------------------------------------------------------
+    def test_case_13_tab_space_formatting_and_short_titles(self):
+        # 1. Tab và nhiều khoảng trắng liên tiếp
+        t1 = "ACCOUNTABILITY BRIEF \t\t December, 2000"
+        c1 = clean_and_normalize_text(t1)
+        self.assertEqual(c1, "ACCOUNTABILITY BRIEF December, 2000")
+        v1, f1 = pre_filter_text(c1)
+        self.assertTrue(v1)
+        self.assertEqual(f1, "ACCOUNTABILITY BRIEF December, 2000")
+        s1 = split_into_sentences(f1)
+        self.assertEqual(s1, ["ACCOUNTABILITY BRIEF December, 2000"])
+
+        # 2. Tiêu đề ngắn không có dấu chấm câu
+        short_titles = [
+            "ACCOUNTABILITY BRIEF",
+            "December, 2000",
+            "EXECUTIVE SUMMARY",
+            "1. Introduction",
+            "• Project Overview",
+            "Note: General Findings"
+        ]
+        for st in short_titles:
+            c = clean_and_normalize_text(st)
+            v, f = pre_filter_text(c)
+            self.assertTrue(v, f"Tiêu đề hợp lệ '{st}' không được bị lọc bỏ")
+            s = split_into_sentences(f)
+            self.assertGreater(len(s), 0)
+
+        # 3. Chuỗi chỉ chứa ký tự phân cách trang trí (cần lọc an toàn, không gửi AI)
+        decoratives = [". .", ".                                            .", "-------", "• • •", "* * *"]
+        for dec in decoratives:
+            c = clean_and_normalize_text(dec)
+            v, f = pre_filter_text(c)
+            self.assertFalse(v, f"Chuỗi trang trí '{dec}' phải được nhận diện lọc an toàn")
+
+        print("✓ Test Case 13: Tiền xử lý bảo toàn tiêu đề ngắn, tab, khoảng trắng và phân định chuỗi trang trí - ĐẠT")
+
+    # -------------------------------------------------------------------------
+    # Trường hợp 14: Nhận diện bảng biểu không viền, không làm xáo trộn số liệu
+    # -------------------------------------------------------------------------
+    def test_case_14_borderless_table_row_preservation(self):
+        # Mô phỏng block chứa bảng 3 cột: [Tên dự án] [Tác giả] [Số tiền]
+        raw_lines = [
+            {"text": "Project Alpha", "bbox": fitz.Rect(50, 100, 200, 115), "spans": [{"text": "Project Alpha", "size": 9.0, "style": "regular", "color": (0, 0, 0)}]},
+            {"text": "Smith", "bbox": fitz.Rect(250, 100, 300, 115), "spans": [{"text": "Smith", "size": 9.0, "style": "regular", "color": (0, 0, 0)}]},
+            {"text": "$50,000", "bbox": fitz.Rect(350, 100, 400, 115), "spans": [{"text": "$50,000", "size": 9.0, "style": "regular", "color": (0, 0, 0)}]},
+            {"text": "Project Beta", "bbox": fitz.Rect(50, 120, 200, 135), "spans": [{"text": "Project Beta", "size": 9.0, "style": "regular", "color": (0, 0, 0)}]},
+            {"text": "Johnson", "bbox": fitz.Rect(250, 120, 300, 135), "spans": [{"text": "Johnson", "size": 9.0, "style": "regular", "color": (0, 0, 0)}]},
+            {"text": "$75,000", "bbox": fitz.Rect(350, 120, 400, 135), "spans": [{"text": "$75,000", "size": 9.0, "style": "regular", "color": (0, 0, 0)}]},
+        ]
+
+        subgroups = group_lines_into_elements(raw_lines)
+        # Vì là bảng 3 cột song song, không được gộp 2 số tiền thành 1 chuỗi "$50,000 $75,000"
+        # Mỗi ô phải là 1 phần tử độc lập (tổng 6 ô)
+        self.assertEqual(len(subgroups), 6)
+        extracted_texts = [sg[0]["text"] for sg in subgroups]
+        self.assertIn("$50,000", extracted_texts)
+        self.assertIn("$75,000", extracted_texts)
+        self.assertNotIn("$50,000 $75,000", extracted_texts)
+        print("✓ Test Case 14: Nhận diện cấu trúc bảng biểu không viền, bảo toàn từng ô số liệu độc lập - ĐẠT")
+
+    # -------------------------------------------------------------------------
+    # Trường hợp 15: Kiểm chứng an toàn khi bounding box siêu hẹp không thể chèn vừa
+    # -------------------------------------------------------------------------
+    def test_case_15_tiny_bbox_retention_regression(self):
+        input_pdf = os.path.join(self.temp_dir, "case15_in.pdf")
+        output_pdf = os.path.join(self.temp_dir, "case15_out.pdf")
+
+        doc = fitz.open()
+        p = doc.new_page(width=595, height=842)
+        # 1. Đoạn văn bản chính ở trên (sẽ dịch thành công)
+        p.insert_textbox(fitz.Rect(50, 50, 500, 100), "Main content of the article.", fontsize=11)
+        # 2. Phần tử siêu hẹp ở giữa bị kẹp chặt 2 phía bởi chướng ngại vật
+        tiny_rect = fitz.Rect(50, 200, 75, 215)
+        p.insert_textbox(tiny_rect, "TN", fontsize=8)
+        # 3. Chướng ngại vật bên phải chặn nới rộng ngang
+        p.insert_textbox(fitz.Rect(80, 200, 500, 218), "Right obstacle block.", fontsize=10)
+        # 4. Chướng ngại vật bên dưới chặn nới rộng dọc
+        p.insert_textbox(fitz.Rect(50, 220, 500, 300), "Obstacle block below.", fontsize=10)
+        doc.save(input_pdf)
+        doc.close()
+
+        with patch("pdf_process.translate_batch") as mock_trans:
+            # Mô phỏng: đoạn chính dịch bình thường, phần tử nhỏ trả về chuỗi dài không thể vừa khung
+            def mock_func(batch, **kwargs):
+                res = []
+                for b in batch:
+                    if "Main content" in b:
+                        res.append("Nội dung chính của bài báo dịch thành công.")
+                    elif "TN" in b:
+                        res.append("Bản dịch tiếng Việt quá dài chắc chắn không thể nhét vừa ô 10x11pt này")
+                    else:
+                        res.append("Văn bản chướng ngại vật dịch bình thường.")
+                return res
+            mock_trans.side_effect = mock_func
+
+            translate_pdf(input_pdf, output_pdf)
+
+        self.assertTrue(os.path.exists(output_pdf))
+        with fitz.open(output_pdf) as out_doc:
+            out_page = out_doc[0]
+            out_text = clean_and_normalize_text(out_page.get_text())
+            # 1. Đoạn chính và chướng ngại vật được dịch thành công
+            self.assertIn("Nội dung chính", out_text)
+            self.assertIn("chướng ngại vật", out_text)
+            # 2. Phần tử nhỏ không vừa khung: lệnh redact BỊ BỎ QUA, văn bản gốc 'TN' được giữ nguyên vẹn
+            self.assertIn("TN", out_text)
+            # 3. Không có tình trạng chèn đè bản dịch dài vào ô nhỏ
+            self.assertNotIn("quá dài chắc chắn", out_text)
+
+        print("✓ Test Case 15: Phần tử có bbox siêu hẹp không thể vừa khung được giữ nguyên văn bản gốc - ĐẠT")
+
 
 if __name__ == "__main__":
     unittest.main()
+
