@@ -8,8 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, render_template, request, send_file, jsonify
 from werkzeug.utils import secure_filename
 import pymupdf as fitz
-from pdf_process import translate_pdf, translate_batch
-from pdf_engine import clean_and_normalize_text, pre_filter_text, split_into_sentences
+from pdf_process import translate_pdf
 
 # Ép mã hóa UTF-8 trên Windows console để in log tiếng Việt không bị lỗi font
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -201,83 +200,7 @@ def get_job_status(job_id):
 
 
 
-@app.route('/api/translate-text', methods=['POST'])
-def translate_text_api():
-    data = request.get_json(silent=True) or {}
-    text = data.get('text', '').strip()
-    try:
-        num_beams = int(data.get('num_beams') or 1)
-        if num_beams not in [1, 2, 4]:
-            num_beams = 1
-    except Exception:
-        num_beams = 1
 
-    if not text:
-        return jsonify({'translation': ''})
-
-    # Giới hạn kích thước văn bản dịch thuần tối đa 10,000 ký tự để bảo vệ server
-    if len(text) > 10000:
-        return jsonify({'error': 'Độ dài văn bản vượt quá giới hạn (tối đa 10,000 ký tự mỗi lượt).'}), 400
-
-    try:
-        # Tiền xử lý văn bản: chuẩn hóa Unicode và phân tách theo đoạn / câu
-        paragraphs = text.splitlines()
-        all_sentences_to_translate: list[str] = []
-        structure = []
-
-        for para in paragraphs:
-            cleaned_para = clean_and_normalize_text(para)
-            if not cleaned_para:
-                structure.append(('empty', ''))
-                continue
-
-            need_trans_para, filtered_para = pre_filter_text(cleaned_para)
-            if not need_trans_para:
-                structure.append(('raw', filtered_para))
-                continue
-
-            # Phân tách thành từng câu con bảo vệ số thứ tự mục và từ viết tắt
-            sents = split_into_sentences(filtered_para)
-            para_sents = []
-            for sent in sents:
-                need_trans_sent, filtered_sent = pre_filter_text(sent)
-                if not need_trans_sent:
-                    para_sents.append(('raw', filtered_sent))
-                else:
-                    idx = len(all_sentences_to_translate)
-                    all_sentences_to_translate.append(filtered_sent)
-                    para_sents.append(('trans', idx))
-            structure.append(('para', para_sents))
-
-        # Dịch đồng thời theo batch qua GPU nếu có câu cần dịch
-        translated_sentences = []
-        if all_sentences_to_translate:
-            translated_sentences = translate_batch(
-                all_sentences_to_translate,
-                batch_size=32,
-                num_beams=num_beams,
-                clear_cache=False,
-            )
-
-        # Ghép kết quả dịch theo đúng cấu trúc đoạn và câu ban đầu
-        result_lines = []
-        for item_type, content in structure:
-            if item_type == 'empty':
-                result_lines.append('')
-            elif item_type == 'raw':
-                result_lines.append(content)
-            elif item_type == 'para':
-                line_parts = [
-                    translated_sentences[val] if stype == 'trans' else val
-                    for stype, val in content
-                ]
-                result_lines.append(' '.join(line_parts))
-
-        final_translation = '\n'.join(result_lines)
-        return jsonify({'translation': final_translation})
-    except Exception as e:
-        print(f"Lỗi dịch văn bản: {e}")
-        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/system-status', methods=['GET'])

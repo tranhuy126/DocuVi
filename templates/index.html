@@ -117,7 +117,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
 
 
-            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('doc')">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="resetFileSelection()">
                 <div
                     class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
                     <i class="ph-bold ph-sparkle text-2xl"></i>
@@ -126,22 +126,13 @@
                     <div class="flex items-center gap-2">
                         <span
                             class="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white font-sans">DocuVi</span>
+                        <span
+                            class="hidden sm:inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800/60">
+                            PDF AI
+                        </span>
                     </div>
                 </div>
             </div>
-
-            <!-- Center Nav Links -->
-            <nav
-                class="hidden md:flex items-center gap-1 bg-slate-100/80 dark:bg-dark-surface p-1 rounded-xl border border-slate-200/60 dark:border-dark-border">
-                <button id="nav-doc-btn" onclick="switchTab('doc')"
-                    class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all shadow-sm bg-white text-slate-900 dark:bg-dark-card dark:text-white">
-                    <i class="ph-bold ph-file-text mr-1.5 text-brand-600 dark:text-brand-400"></i>Dịch Tài Liệu
-                </button>
-                <button id="nav-text-btn" onclick="switchTab('text')"
-                    class="px-4 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all">
-                    <i class="ph-bold ph-textbox mr-1.5"></i>Dịch Văn Bản
-                </button>
-            </nav>
 
 
             <div class="flex items-center gap-3">
@@ -197,23 +188,9 @@
                     Định Dạng</span>
             </h1>
             <p class="mt-3 text-slate-600 dark:text-slate-400 text-base sm:text-lg leading-relaxed font-normal">
-                Dịch thuật tài liệu PDF & văn bản từ Tiếng Anh sang Tiếng Việt bằng mô hình VinAI En2Vi. Tự
+                Dịch thuật tài liệu PDF từ Tiếng Anh sang Tiếng Việt bằng mô hình VinAI En2Vi. Tự
                 động bảo toàn bố cục, hình ảnh, bảng biểu.
             </p>
-        </div>
-
-
-        <div class="flex md:hidden justify-center mb-6">
-            <div class="bg-slate-200/80 dark:bg-dark-surface p-1 rounded-xl flex gap-1 w-full max-w-xs">
-                <button id="mob-doc-btn" onclick="switchTab('doc')"
-                    class="flex-1 py-2 rounded-lg text-xs font-bold bg-white text-slate-900 shadow-sm dark:bg-dark-card dark:text-white">
-                    <i class="ph-bold ph-file-text mr-1"></i>Dịch File
-                </button>
-                <button id="mob-text-btn" onclick="switchTab('text')"
-                    class="flex-1 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400">
-                    <i class="ph-bold ph-textbox mr-1"></i>Văn Bản
-                </button>
-            </div>
         </div>
 
 
@@ -555,118 +532,7 @@
 
         </div>
 
-        <div id="text-workspace-container" class="hidden space-y-6 transition-all duration-300">
 
-            <div
-                class="bg-white dark:bg-dark-surface p-4 rounded-2xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-
-                <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-                    <div
-                        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 dark:bg-dark-card border border-slate-200 dark:border-dark-border text-slate-800 dark:text-slate-200 font-semibold text-sm">
-                        <span>🇬🇧 English</span>
-                    </div>
-                    <i class="ph-bold ph-arrow-right text-slate-400"></i>
-                    <div
-                        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-50/50 dark:bg-brand-950/30 border border-brand-200/60 dark:border-brand-800/60 text-brand-900 dark:text-brand-200 font-semibold text-sm">
-                        <span>🇻🇳 Tiếng Việt</span>
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-2 w-full md:w-auto justify-end">
-                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">Chế độ
-                        dịch:</label>
-                    <div
-                        class="flex bg-slate-100 dark:bg-dark-card p-1 rounded-xl border border-slate-200 dark:border-dark-border gap-1 text-xs font-semibold">
-                        <button onclick="setTextBeam(1)" id="text-beam-1"
-                            class="px-3 py-1.5 rounded-lg bg-white dark:bg-dark-surface text-slate-900 dark:text-white shadow-xs font-bold flex items-center gap-1.5 transition-all">
-                            <i class="ph-bold ph-lightning text-amber-500"></i> Siêu tốc
-                        </button>
-                        <button onclick="setTextBeam(4)" id="text-beam-4"
-                            class="px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition-all">
-                            <i class="ph-bold ph-target text-brand-500"></i> Chuẩn xác
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-
-                <div
-                    class="bg-white dark:bg-dark-surface rounded-2xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col h-[380px] focus-within:ring-2 focus-within:ring-brand-500 transition-all">
-                    <div
-                        class="px-5 py-3 border-b border-slate-100 dark:border-dark-border flex justify-between items-center bg-slate-50/50 dark:bg-dark-card/40">
-                        <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Văn bản Tiếng Anh</span>
-                        <div class="flex items-center gap-2">
-                            <button onclick="insertSampleText()"
-                                class="text-xs text-brand-600 dark:text-brand-400 font-semibold hover:underline">
-                                Thử đoạn mẫu
-                            </button>
-                            <button onclick="clearSourceText()"
-                                class="text-slate-400 hover:text-red-500 p-1 rounded-lg transition-colors"
-                                title="Xóa nội dung">
-                                <i class="ph-bold ph-trash text-base"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <textarea id="live-source-text" placeholder="Nhập hoặc dán văn bản Tiếng Anh cần dịch tại đây..."
-                        class="flex-grow w-full p-5 bg-transparent resize-none text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none text-base leading-relaxed"
-                        oninput="handleLiveTextTranslate()"></textarea>
-
-                    <div
-                        class="px-5 py-3 bg-white dark:bg-dark-surface border-t border-slate-100 dark:border-dark-border flex justify-between items-center text-xs text-slate-400 font-medium">
-                        <div class="flex gap-2">
-                            <button onclick="pasteClipboard()"
-                                class="hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1">
-                                <i class="ph-bold ph-clipboard-text"></i> Dán từ bộ nhớ
-                            </button>
-                        </div>
-                        <div>
-                            <span id="text-word-count">0 từ</span> • <span id="text-char-count">0/5000 ký tự</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="bg-slate-50/70 dark:bg-dark-card/60 rounded-2xl border border-slate-200/80 dark:border-dark-border shadow-sm flex flex-col h-[380px] relative">
-                    <div
-                        class="px-5 py-3 border-b border-slate-200/60 dark:border-dark-border flex justify-between items-center bg-slate-100/50 dark:bg-dark-card/80">
-                        <span
-                            class="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wider flex items-center gap-1.5">
-                            <i class="ph-bold ph-sparkle"></i> Bản Dịch Tiếng Việt
-                        </span>
-                        <span id="live-status-pill" class="text-[11px] font-bold text-slate-400">Sẵn sàng</span>
-                    </div>
-
-                    <div class="flex-grow p-5 overflow-y-auto">
-                        <div id="live-target-text"
-                            class="text-slate-800 dark:text-slate-100 text-base leading-relaxed font-sans whitespace-pre-wrap select-text">
-                            <span class="text-slate-400 italic">Bản dịch sẽ hiển thị tự động tại đây khi bạn nhập văn
-                                bản...</span>
-                        </div>
-                    </div>
-
-                    <div
-                        class="px-5 py-3 bg-white dark:bg-dark-surface border-t border-slate-200/60 dark:border-dark-border flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <button onclick="speakTranslation()"
-                                class="p-2 text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg hover:bg-slate-100 dark:hover:bg-dark-card transition-colors"
-                                title="Đọc bản dịch">
-                                <i class="ph-bold ph-speaker-high text-lg"></i>
-                            </button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button onclick="copyTranslation()"
-                                class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1.5">
-                                <i class="ph-bold ph-copy"></i>
-                                Sao chép
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
 
     </main>
 
@@ -844,7 +710,6 @@
             downloadUrl: null,
             viewUrl: null,
             originalViewUrl: null,
-            textBeam: 1,
             history: []
         };
 
@@ -854,8 +719,6 @@
         const fileSelectedCard = $("file-selected-card");
         const progressCard = $("progress-card");
         const resultCard = $("result-card");
-        const liveSourceText = $("live-source-text");
-        const liveTargetText = $("live-target-text");
 
         window.addEventListener("DOMContentLoaded", () => {
             initDragAndDrop();
@@ -882,19 +745,8 @@
             }
         }
 
-        function switchTab(tab) {
-            state.activeTab = tab;
-            $("doc-workspace-container").classList.toggle("hidden", tab !== "doc");
-            $("text-workspace-container").classList.toggle("hidden", tab !== "text");
-
-            ["nav-doc-btn", "nav-text-btn", "mob-doc-btn", "mob-text-btn"].forEach(id => {
-                const button = $(id);
-                if (!button) return;
-                const selected = id.includes("doc") ? tab === "doc" : tab === "text";
-                button.className = id.startsWith("mob-")
-                    ? `flex-1 py-2 rounded-lg text-xs font-${selected ? "bold" : "medium"} ${selected ? "bg-white text-slate-900 shadow-sm dark:bg-dark-card dark:text-white" : "text-slate-600 dark:text-slate-400"}`
-                    : `px-4 py-1.5 rounded-lg text-sm font-${selected ? "semibold" : "medium"} transition-all ${selected ? "shadow-sm bg-white text-slate-900 dark:bg-dark-card dark:text-white" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`;
-            });
+        function switchTab(tab = "doc") {
+            state.activeTab = "doc";
         }
 
         function toggleTheme() {
@@ -1161,109 +1013,7 @@
             });
         }
 
-        let liveTranslateTimer;
 
-        function handleLiveTextTranslate() {
-            clearTimeout(liveTranslateTimer);
-            const text = liveSourceText.value;
-            $("text-char-count").textContent = `${text.length}/5000 ký tự`;
-            $("text-word-count").textContent = `${text.trim() ? text.trim().split(/\s+/).length : 0} từ`;
-
-            if (!text.trim()) {
-                liveTargetText.innerHTML = '<span class="text-slate-400 italic">Bản dịch sẽ hiển thị tự động tại đây khi bạn nhập văn bản...</span>';
-                $("live-status-pill").textContent = "Sẵn sàng";
-                return;
-            }
-
-            $("live-status-pill").textContent = "Đang dịch...";
-            liveTranslateTimer = setTimeout(() => performTextTranslation(text), 400);
-        }
-
-        async function performTextTranslation(text) {
-            try {
-                const response = await fetch("/api/translate-text", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ text, num_beams: state.textBeam || 1 })
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || "Không thể dịch văn bản.");
-                // Avoid showing an old result if the user typed again while the request was running.
-                if (liveSourceText.value === text) {
-                    liveTargetText.textContent = data.translation;
-                    $("live-status-pill").textContent = "Hoàn thành";
-                }
-            } catch (error) {
-                if (liveSourceText.value === text) {
-                    liveTargetText.textContent = error.message || "Không kết nối được backend Python.";
-                    $("live-status-pill").textContent = "Lỗi";
-                }
-            }
-        }
-
-        function setTextBeam(beam) {
-            state.textBeam = beam;
-            [1, 4].forEach(b => {
-                const btn = $("text-beam-" + b);
-                if (!btn) return;
-                btn.className = b === beam
-                    ? "px-3 py-1.5 rounded-lg bg-white dark:bg-dark-surface text-slate-900 dark:text-white shadow-xs font-bold flex items-center gap-1.5 transition-all"
-                    : "px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition-all";
-            });
-            handleLiveTextTranslate();
-        }
-
-        function insertSampleText() {
-            liveSourceText.value = "Artificial Intelligence is transforming how global enterprises process technical documentation and legal contracts.";
-            handleLiveTextTranslate();
-        }
-
-        function clearSourceText() {
-            liveSourceText.value = "";
-            handleLiveTextTranslate();
-        }
-
-        async function pasteClipboard() {
-            try {
-                liveSourceText.value = await navigator.clipboard.readText();
-                handleLiveTextTranslate();
-                showToast("Đã dán văn bản từ clipboard");
-            } catch {
-                showToast("Không thể truy cập clipboard");
-            }
-        }
-
-        async function copyTranslation() {
-            const text = liveTargetText.textContent;
-            if (!text || text.includes("Bản dịch sẽ hiển thị")) return;
-
-            try {
-                await navigator.clipboard.writeText(text);
-            } catch {
-                const temp = document.createElement("textarea");
-                temp.value = text;
-                document.body.appendChild(temp);
-                temp.select();
-                document.execCommand("copy");
-                temp.remove();
-            }
-            showToast("Đã sao chép bản dịch vào bộ nhớ tạm!");
-        }
-
-        function speakTranslation() {
-            const text = liveTargetText.textContent;
-            if (!text || text.includes("Bản dịch sẽ hiển thị")) return;
-
-            if (!("speechSynthesis" in window)) {
-                showToast("Trình duyệt không hỗ trợ đọc âm thanh");
-                return;
-            }
-
-            const speech = new SpeechSynthesisUtterance(text);
-            speech.lang = "vi-VN";
-            window.speechSynthesis.speak(speech);
-            showToast("Đang phát âm thanh...");
-        }
 
         function toggleHistoryDrawer() {
             const drawer = $("history-drawer");
