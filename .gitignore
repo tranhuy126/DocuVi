@@ -9,19 +9,45 @@ venv/
 ENV/
 env/
 
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
 # IDE and Editor files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+*.sublime-workspace
 
-# Project temporary and archive files
-project.zip
-archive.zip
-archive/
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Hugging Face, PyTorch & developer tool caches
+.cache/
+.pytest_cache/
+
+# Logs and temporary files
 *.log
+*.tmp
+*.bak
 
-# Uploaded and output PDFs (keep directory structure via .gitkeep, ignore all PDF files)
+# Large archive files and backup dumps
+*.zip
+*.tar.gz
+*.rar
+*.7z
+project.zip
+projectfixed.zip
+archive.zip
+
+# Evaluation and benchmark datasets (contains 1000+ test PDFs)
+archive/
+
+# Uploaded and output PDFs (keep directory structure via .gitkeep)
 uploads/*
 !uploads/.gitkeep
 outputs/*
