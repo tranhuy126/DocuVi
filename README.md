@@ -216,7 +216,7 @@ DocuVi/
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/<your-username>/DocuVi.git
+git clone https://github.com/tranhuy126/DocuVi.git
 cd DocuVi
 ```
 
@@ -344,7 +344,7 @@ To maintain realistic expectations, please consider the following known boundari
 
 ## Testing & Quality Assurance
 
-DocuVi includes a comprehensive, automated test suite implemented in [test_suite.py](file:///f:/project/test_suite.py). It covers 15 critical unit and regression test cases:
+DocuVi includes a comprehensive, automated test suite implemented in [test_suite.py](test_suite.py). It covers 15 critical unit and regression test cases:
 
 ```bash
 # Run the complete test suite
@@ -403,7 +403,7 @@ python test_suite.py
 ## License & Acknowledgments
 
 ### License
-This project currently does not have an explicit open-source license assigned. All rights are reserved by the project authors pending license finalization.
+Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ### Acknowledgments
 - **[VinAI Research](https://www.vinai.io/):** For training and publishing the `vinai-translate-en2vi` model.
