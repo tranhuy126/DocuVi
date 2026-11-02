@@ -25,13 +25,11 @@ def get_device() -> str:
     if _device is None:
         _device = "cuda" if torch.cuda.is_available() else "cpu"
         if _device == "cuda":
-            # Tự động benchmark để chọn thuật toán convolution/attention tối ưu cho GPU
             torch.backends.cudnn.benchmark = True
     return _device
 
 
 def get_translation_model():
-    """Khởi tạo lười và nạp mô hình dịch vào bộ nhớ với cơ chế thread-safe."""
     global _model, _tokenizer, _vi_lang_id, _device
     if _model is None or _tokenizer is None:
         with _model_init_lock:
@@ -74,12 +72,11 @@ def __getattr__(name: str):
 
 
 def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
-    """Phân tách văn bản quá dài tại các mốc dấu câu tự nhiên để tránh bị tokenizer cắt cụt (truncation)."""
     text = text.strip()
     if len(text) <= max_chars:
         return [text]
 
-    # Thử tách theo dấu chấm phẩy, hai chấm, gạch ngang dài
+
     sub_parts = []
     candidates = re.split(r"(?<=[;:—])\s+", text)
     if len(candidates) > 1:
@@ -94,7 +91,7 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
             sub_parts.append(current.strip())
         return sub_parts
 
-    # Thử tách theo dấu phẩy
+
     candidates = re.split(r"(?<=,)\s+", text)
     if len(candidates) > 1:
         current = ""
@@ -108,7 +105,7 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
             sub_parts.append(current.strip())
         return sub_parts
 
-    # Tách theo ranh giới từ nếu không có dấu câu
+
     words = text.split()
     current = ""
     for w in words:
@@ -125,7 +122,7 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
 def _translate_raw_batch(
     model, tokenizer, vi_lang_id, batch: list[str], cur_device: str, num_beams: int
 ) -> list[str]:
-    """Hàm phụ thực hiện suy luận một batch nhỏ với bộ tokenizer và model."""
+
     encoded = tokenizer(
         batch,
         return_tensors="pt",
@@ -147,36 +144,30 @@ def _translate_raw_batch(
     return decoded
 
 
-
 def translate_batch(
     texts: list[str],
     batch_size: int = 32,
     num_beams: int = 1,
     clear_cache: bool = False,
 ) -> list[str]:
-    """
-    Dịch batch câu en-vi trên GPU/CPU:
-    - Gom câu theo độ dài giảm padding thừa.
-    - Chia nhỏ câu quá dài tránh truncation làm mất văn bản.
-    - Xử lý Out-of-Memory (OOM) tự động giảm batch size hoặc fallback CPU.
-    - Bảo toàn câu gốc tiếng Anh nếu mô hình trả về chuỗi rỗng.
-    """
+
+
     if not texts:
         return []
 
     model, tokenizer, vi_lang_id = get_translation_model()
     cur_device = get_device()
 
-    # Bước 1: Kiểm tra và chia nhỏ các câu quá dài để không bị mất nội dung do truncation
+
     flat_units = []
-    unit_map = []  # mapping từ flat_units về index gốc trong texts
+    unit_map = []
     for orig_idx, t in enumerate(texts):
         chunks = _chunk_text_if_needed(t, max_chars=450)
         for c in chunks:
             flat_units.append(c)
             unit_map.append(orig_idx)
 
-    # Bước 2: Sắp xếp theo độ dài để tối ưu gom nhóm tensor khi padding
+
     indexed_units = sorted(enumerate(flat_units), key=lambda x: len(x[1]))
     sorted_unit_indices = [x[0] for x in indexed_units]
     sorted_units = [x[1] for x in indexed_units]
@@ -203,12 +194,10 @@ def translate_batch(
                         if cur_device == "cuda":
                             torch.cuda.empty_cache()
                         if current_batch_size > 1:
-                            # Thử lại batch hiện tại với batch size nhỏ hơn
                             current_batch_size = max(1, current_batch_size // 2)
                             print(f"[TỰ PHỤC HỒI] Giảm batch_size xuống {current_batch_size} và tiếp tục...")
                             continue
                         else:
-                            # Khi batch_size = 1 vẫn OOM, tạm đưa câu hiện tại sang CPU dịch
                             print(f"[TỰ PHỤC HỒI] Dịch câu đơn trên CPU để vượt qua giới hạn bộ nhớ...")
                             try:
                                 cpu_decoded = _translate_raw_batch(
@@ -230,18 +219,18 @@ def translate_batch(
             if clear_cache and cur_device == "cuda":
                 torch.cuda.empty_cache()
 
-    # Bước 3: Ánh xạ kết quả dịch đã sắp xếp về flat_units ban đầu
+
     flat_results = [""] * len(flat_units)
     for sorted_idx, res in zip(sorted_unit_indices, sorted_results):
         orig_src = flat_units[sorted_idx]
-        # Nếu mô hình trả về chuỗi rỗng thì giữ nguyên câu gốc
+
         cleaned_res = res.strip() if res else ""
         if not cleaned_res and orig_src.strip():
             print(f"[CẢNH BÁO] Dịch trả về rỗng cho: '{orig_src[:50]}...', giữ nguyên văn bản gốc.")
             cleaned_res = orig_src
         flat_results[sorted_idx] = cleaned_res
 
-    # Bước 4: Ghép các chunk con về đúng texts ban đầu
+
     grouped_results: dict[int, list[str]] = {idx: [] for idx in range(len(texts))}
     for u_idx, orig_text_idx in enumerate(unit_map):
         grouped_results[orig_text_idx].append(flat_results[u_idx])
@@ -254,4 +243,3 @@ def translate_batch(
         final_results.append(joined)
 
     return final_results
-

@@ -10,7 +10,7 @@ from werkzeug.utils import secure_filename
 import pymupdf as fitz
 from pdf_process import translate_pdf
 
-# Ép mã hóa UTF-8 trên Windows console để in log tiếng Việt không bị lỗi font
+
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -19,7 +19,7 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 
 app = Flask(__name__)
 
-# Giới hạn kích thước tải lên tối đa 50MB để đảm bảo an toàn cho máy chủ
+
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 
@@ -36,19 +36,18 @@ OUTPUT_FOLDER = os.path.join(BASE_DIR, 'outputs')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-# Giới hạn 1 worker để tránh nghẽn/tràn VRAM do mô hình chạy trên GPU
+
 _jobs: dict[str, dict] = {}
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
 def _run_translation_job(job_id, input_path, output_path, num_beams, original_filename=None):
-    """Thực thi dịch PDF trong thread pool worker và cập nhật trạng thái job."""
     if job_id in _jobs:
         _jobs[job_id]["status"] = "running"
     try:
         translate_pdf(input_path, output_path, num_beams=num_beams)
 
-        # Kiểm chứng file PDF kết quả thực sự tồn tại, có dung lượng > 0 và mở được
+
         if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
             raise RuntimeError("Quá trình dịch không tạo được file PDF kết quả hợp lệ.")
 
@@ -74,7 +73,7 @@ def _run_translation_job(job_id, input_path, output_path, num_beams, original_fi
             }
     except Exception as e:
         err_msg = str(e)
-        # Loại bỏ các đường dẫn ổ đĩa nội bộ của máy chủ để không làm lộ cấu trúc server
+
         err_msg = re.sub(r"[A-Za-z]:\\[^ \n\r\t]+", "[đường dẫn hệ thống]", err_msg)
         err_msg = re.sub(r"/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_./-]+", "[đường dẫn hệ thống]", err_msg)
         print(f"Lỗi xử lý file PDF trong job {job_id}: {e}")
@@ -90,7 +89,6 @@ def index():
 
 @app.route('/api/translate-pdf', methods=['POST'])
 def translate_api():
-    """Khởi tạo tác vụ dịch PDF bất đồng bộ với UUID định danh duy nhất cho từng job."""
     req_data = request.get_json(silent=True) or {}
     file = request.files.get('file') or request.files.get('pdfFile')
 
@@ -103,7 +101,7 @@ def translate_api():
         if not file.filename.lower().endswith('.pdf'):
             return jsonify({'error': 'File không hợp lệ! Vui lòng chọn file có định dạng .pdf'}), 400
 
-        # Kiểm tra magic bytes %PDF- ngay từ stream để tránh file giả mạo đuôi mở rộng
+
         header = file.read(1024)
         if not header.startswith(b'%PDF-') and b'%PDF-' not in header[:1024]:
             return jsonify({'error': 'File không phải là định dạng PDF hợp lệ (thiếu header %PDF-)!'}), 400
@@ -118,7 +116,7 @@ def translate_api():
         input_path = os.path.join(UPLOAD_FOLDER, stored_input_filename)
         file.save(input_path)
 
-        # Kiểm tra mở thử bằng PyMuPDF để bắt ngay file hỏng / rỗng / mã hóa mật khẩu
+
         try:
             with fitz.open(input_path) as check_doc:
                 if len(check_doc) == 0:
@@ -134,7 +132,6 @@ def translate_api():
                 os.remove(input_path)
             return jsonify({'error': f'Không thể đọc file PDF (file bị hỏng hoặc sai cấu trúc): {e}'}), 400
     else:
-        # Hỗ trợ kiểm thử nhanh với file mẫu có sẵn trên server
         chosen_name = req_data.get('filename') or request.form.get('filename')
         if chosen_name:
             safe_chosen = secure_filename(chosen_name)
@@ -177,7 +174,7 @@ def translate_api():
 @app.route('/api/job/<job_id>/status', methods=['GET'])
 def get_job_status(job_id):
     now = time.time()
-    # Dọn dẹp job đã xong hoặc lỗi sau 1 giờ để tránh tràn RAM
+
     expired_ids = [
         jid for jid, info in _jobs.items()
         if info.get("status") in ("done", "error") and now - info.get("created_at", 0) > 3600
@@ -189,7 +186,7 @@ def get_job_status(job_id):
     if not job:
         return jsonify({"error": "Không tìm thấy job"}), 404
 
-    # Chỉ trả về thông tin trạng thái cần thiết cho frontend, không để lộ đường dẫn nội bộ máy chủ
+
     return jsonify({
         "job_id": job_id,
         "status": job.get("status"),
@@ -197,10 +194,6 @@ def get_job_status(job_id):
         "error": job.get("error"),
         "created_at": job.get("created_at"),
     })
-
-
-
-
 
 
 @app.route('/api/system-status', methods=['GET'])
@@ -252,7 +245,6 @@ def view_pdf(folder, filename):
 
 @app.route('/download/<filename>')
 def download_file(filename):
-    # Hỗ trợ tải bằng job_id hoặc tên file trực tiếp
     target_path = None
     download_name = None
 
@@ -271,7 +263,7 @@ def download_file(filename):
 
         if os.path.isfile(candidate):
             target_path = candidate
-            # Loại bỏ tiền tố UUID nội bộ nếu có để file tải về có tên hiển thị đẹp cho người dùng
+
             match = re.match(r"^translated_[0-9a-fA-F\-]{8,36}_(.+)$", clean_name)
             if match:
                 download_name = f"translated_{match.group(1)}"
@@ -284,9 +276,7 @@ def download_file(filename):
     return send_file(target_path, as_attachment=True, download_name=download_name, mimetype='application/pdf')
 
 
-
 if __name__ == '__main__':
-    # Hỗ trợ chạy trực tiếp từ CLI: python app.py [path/to/file.pdf]
     pdf_args = [arg for arg in sys.argv[1:] if arg.lower().endswith('.pdf')]
     if pdf_args:
         target = pdf_args[0]

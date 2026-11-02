@@ -11,7 +11,6 @@ from .text_processor import (
 
 
 def split_horizontal_lines(raw_lines: list[dict]) -> list[list[dict]]:
-    """Phát hiện và phân tách các dòng văn bản nằm song song theo chiều ngang (cột, bảng, biểu đồ)."""
     if len(raw_lines) <= 1:
         return [raw_lines]
 
@@ -58,20 +57,12 @@ def split_horizontal_lines(raw_lines: list[dict]) -> list[list[dict]]:
 
 
 def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
-    """
-    Gom các dòng cùng block thành các nhóm phần tử:
-    - Kiểm tra độ tương đồng cỡ chữ.
-    - Phân biệt kiểu chữ Đậm (Bold) của tiêu đề và chữ Thường (Regular) của đoạn văn.
-    - Phát hiện khoảng cách dòng bất thường (paragraph gap) để không gom các đoạn độc lập thành một khối.
-    """
     if len(raw_lines) <= 1:
         return [raw_lines]
 
     horizontal_clusters = split_horizontal_lines(raw_lines)
 
-    # Kiểm tra đặc trưng bảng biểu không viền / lưới số liệu tài chính:
-    # 1. Có từ 3 cụm cột song song trở lên trong cùng một khối.
-    # 2. Hoặc có từ 2 cột song song và ít nhất 1 cột chứa nhiều số liệu/ký hiệu tài chính (>30% dòng không có chữ cái).
+
     is_borderless_table = len(horizontal_clusters) >= 3
     if not is_borderless_table and len(horizontal_clusters) >= 2:
         for c in horizontal_clusters:
@@ -117,7 +108,7 @@ def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
                 min(prev_size, next_size), 0.1
             )
 
-            # Kiểm tra phân định kiểu font: Tiêu đề in đậm vs Thân bài in thường
+
             prev_is_bold = any(
                 s.get("style", "") in ("bold", "bold_italic")
                 for s in prev_line.get("spans", [])
@@ -128,15 +119,11 @@ def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
             )
             style_diff = prev_is_bold != next_is_bold
 
-            # Khoảng cách thẳng đứng giữa 2 dòng liên tiếp
+
             line_h = max(p_bbox.height, n_bbox.height, max(prev_size, next_size))
             vert_gap = n_bbox.y0 - p_bbox.y1
 
-            # Tách thành phần tử mới khi:
-            # 1. Cỡ chữ chênh lệch từ 1.5pt trở lên hoặc tỷ lệ >= 1.2
-            # 2. Thay đổi style in đậm (tiêu đề / thân bài)
-            # 3. Có khoảng trống giữa các đoạn văn (vert_gap > 0.65 * line_h và vert_gap > 5.0pt)
-            # 4. Dòng tiếp theo bị thụt lùi hoặc nằm ngược tọa độ
+
             is_different_element = (
                 size_diff >= 1.5
                 or size_ratio >= 1.2
@@ -157,9 +144,7 @@ def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
     return final_groups
 
 
-
 def extract_page_elements(page: fitz.Page) -> list[dict]:
-    """Trích xuất toàn bộ phần tử trên trang, bảo toàn cấu trúc ô bảng và tách khối văn bản ngoài bảng."""
     elements = []
     table_bboxes: list[fitz.Rect] = []
 
@@ -238,7 +223,7 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
                     (c_val & 255) / 255,
                 )
 
-                # Căn lề ô bảng (ưu tiên căn phải cho số liệu/tiền tệ)
+
                 align = fitz.TEXT_ALIGN_LEFT
                 if cell_spans:
                     cell_mid = (c_rect.x0 + c_rect.x1) / 2
@@ -251,7 +236,7 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
                     elif abs(cell_mid - span_mid) < 12 and c_rect.width > 20:
                         align = fitz.TEXT_ALIGN_CENTER
 
-                # Đệm lề an toàn theo tỷ lệ kích thước ô để chữ không tràn ra ngoài đường kẻ
+
                 pad_x = min(1.5, c_rect.width * 0.08)
                 pad_y = min(1.0, c_rect.height * 0.08)
                 elements.append(
@@ -277,7 +262,7 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
     except Exception as e:
         print(f"[CẢNH BÁO] Lỗi nhận diện bảng: {e}")
 
-    # Trích xuất các khối chữ ngoài bảng
+
     dict_data = page.get_text("dict", sort=True)
     for block in dict_data.get("blocks", []):
         if block.get("type") != 0:
@@ -292,7 +277,7 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
         ):
             continue
 
-        # Bỏ qua nếu block nằm trọn trong bảng (>95% diện tích)
+
         if any(
             (b_rect & t_rect).get_area() > 0.95 * b_rect.get_area()
             for t_rect in table_bboxes
@@ -310,8 +295,7 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
             ):
                 continue
 
-            # Phân định quyền sở hữu theo từng dòng (Line-level ownership):
-            # Nếu >50% diện tích dòng nằm trong bảng -> dòng đó thuộc về ô bảng (đã xử lý ở Bước 1)
+
             line_area = line_bbox.get_area()
             is_line_in_table = False
             for t_rect in table_bboxes:
@@ -349,7 +333,7 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
             if not valid_spans:
                 continue
 
-            # Tách dòng nếu có khoảng cách ngang bất thường (bảng không viền, 2 cột cùng dòng)
+
             segments = []
             current_seg = [valid_spans[0]]
             for s in valid_spans[1:]:
@@ -443,19 +427,17 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
                 }
             )
 
-    # Sắp xếp các phần tử theo thứ tự đọc tự nhiên của trang (Top-to-Bottom, Left-to-Right)
-    # Bảo đảm tiêu đề, đoạn văn và các ô bảng nằm đúng vị trí xuất hiện trong luồng tài liệu
+
     if elements:
         page_w = page.rect.width
         mid_x = page_w / 2
 
-        # Kiểm tra xem trang có cấu trúc 2 cột rõ rệt hay không
+
         left_elems = [e for e in elements if e["bbox"].x1 < mid_x + 15 and e["bbox"].width < page_w * 0.6]
         right_elems = [e for e in elements if e["bbox"].x0 > mid_x - 15 and e["bbox"].width < page_w * 0.6]
         has_two_columns = len(left_elems) >= 3 and len(right_elems) >= 3
 
         if has_two_columns:
-            # Trang 2 cột: các khối full-width xếp theo Y, khối trong cột ưu tiên cột trái rồi cột phải
             def col_sort_key(e):
                 b = e["bbox"]
                 is_full_width = b.width > page_w * 0.65
@@ -466,8 +448,6 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
 
             elements.sort(key=col_sort_key)
         else:
-            # Trang 1 cột hoặc bố cục thông thường: sắp xếp từ trên xuống dưới, từ trái sang phải
             elements.sort(key=lambda e: (round(e["bbox"].y0 / 4) * 4, e["bbox"].x0))
 
     return elements
-

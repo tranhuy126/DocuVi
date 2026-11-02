@@ -27,7 +27,7 @@ def get_font_buffers() -> dict[str, bytes]:
         with _font_lock:
             if _FONT_BUFFERS is None:
                 buffers = {}
-                # Tìm font regular trước làm điểm tựa fallback
+
                 regular_path = FONT_DIR / FONT_FILES["regular"]
                 system_font_candidates = [
                     Path("C:/Windows/Fonts/times.ttf"),
@@ -40,7 +40,7 @@ def get_font_buffers() -> dict[str, bytes]:
                         base_regular_buffer = fitz.Font(fontfile=str(regular_path)).buffer
                     except Exception as e:
                         print(f"[CẢNH BÁO] Không đọc được font regular tại {regular_path}: {e}")
-                
+
                 if base_regular_buffer is None:
                     for sys_p in system_font_candidates:
                         if sys_p.exists():
@@ -59,7 +59,7 @@ def get_font_buffers() -> dict[str, bytes]:
 
                 buffers["regular"] = base_regular_buffer
 
-                # Nạp các style còn lại, nếu thiếu thì fallback về base_regular_buffer
+
                 for style in ("bold", "italic", "bold_italic"):
                     filename = FONT_FILES[style]
                     font_path = FONT_DIR / filename
@@ -70,7 +70,6 @@ def get_font_buffers() -> dict[str, bytes]:
                             print(f"[CẢNH BÁO] Lỗi đọc font {style} ({font_path}), dùng fallback regular: {e}")
                             buffers[style] = base_regular_buffer
                     else:
-                        # Thử tìm font biến thể từ hệ thống
                         sys_style_path = Path(f"C:/Windows/Fonts/{filename}")
                         if sys_style_path.exists():
                             try:
@@ -85,8 +84,6 @@ def get_font_buffers() -> dict[str, bytes]:
 
 
 class _LazyFontBuffers(dict):
-    """Ủy quyền truy cập dict để tương thích ngược nếu mã ngoài gọi trực tiếp FONT_BUFFERS."""
-
     def __getitem__(self, key):
         return get_font_buffers()[key]
 
@@ -116,7 +113,6 @@ FONT_BUFFERS = _LazyFontBuffers()
 
 
 def detect_font_style(flags: int = 0, font_name: str = "") -> str:
-    # PyMuPDF span flags: bit 4 (16) = bold, bit 1 (2) = italic
     fn = font_name.lower() if font_name else ""
     is_bold = bool(flags & 16) or any(k in fn for k in ("bold", "black", "heavy", "semibold", "medium"))
     is_italic = bool(flags & 2) or any(k in fn for k in ("italic", "oblique", "slanted"))
@@ -128,4 +124,3 @@ def detect_font_style(flags: int = 0, font_name: str = "") -> str:
         return "italic"
     else:
         return "regular"
-

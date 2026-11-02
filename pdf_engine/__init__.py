@@ -1,7 +1,3 @@
-"""
-Package pdf_engine: Hệ thống xử lý, dịch thuật và tái tạo layout PDF chuyên sâu.
-"""
-
 import sys
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):

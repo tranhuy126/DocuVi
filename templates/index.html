@@ -57,7 +57,7 @@
     </script>
 
     <style>
-        /* Custom scrollbar */
+        
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -76,7 +76,7 @@
             background: rgba(156, 163, 175, 0.5);
         }
 
-        /* Subtle grid background pattern */
+        
         .bg-grid-pattern {
             background-size: 32px 32px;
             background-image:
@@ -90,7 +90,7 @@
                 linear-gradient(to bottom, rgba(38, 51, 77, 0.3) 1px, transparent 1px);
         }
 
-        /* Glassmorphism effects */
+        
         .glass-panel {
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
@@ -101,7 +101,7 @@
             background: rgba(19, 25, 36, 0.85);
         }
 
-        /* Custom Dropzone Pulse */
+        
         .dropzone-active {
             border-color: #2563eb !important;
             background-color: rgba(37, 99, 235, 0.04) !important;
@@ -150,7 +150,7 @@
                     <i id="theme-icon" class="ph-bold ph-moon text-lg"></i>
                 </button>
 
-                <!-- About Project Button -->
+                
                 <button onclick="toggleAboutModal()"
                     class="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-dark-border flex items-center gap-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-surface text-sm font-semibold transition-colors"
                     title="Thông tin đề tài & Báo cáo kỹ thuật">
@@ -158,7 +158,7 @@
                     <span class="hidden sm:inline">Về đề tài</span>
                 </button>
 
-                <!-- History Drawer Trigger Button -->
+                
                 <button onclick="toggleHistoryDrawer()"
                     class="relative px-3 py-1.5 rounded-xl border border-slate-200 dark:border-dark-border flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-dark-surface text-sm font-semibold transition-colors">
                     <i class="ph-bold ph-clock-counter-clockwise text-lg text-slate-500"></i>
@@ -274,7 +274,7 @@
                         <span>Tối đa 50MB / File</span>
                     </div>
 
-                    <!-- Quick Sample Files for Instant Testing -->
+                    
                     <div class="pt-6 border-t border-slate-100 dark:border-dark-border">
                         <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-3">
                             Hoặc thử ngay với file mẫu có sẵn:</p>
@@ -384,7 +384,7 @@
             </div>
 
             <div id="result-card" class="hidden space-y-6">
-                <!-- Success Banner -->
+                
                 <div
                     class="bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
@@ -536,7 +536,7 @@
 
     </main>
 
-    <!-- Modal Thông Tin Đề Tài & Kiến Trúc Kỹ Thuật -->
+    
     <div id="about-modal-backdrop" onclick="toggleAboutModal()"
         class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 opacity-0 pointer-events-none transition-opacity duration-300">
     </div>
@@ -560,7 +560,7 @@
         </div>
 
         <div class="py-5 space-y-5 text-sm">
-            <!-- Thông tin sinh viên & Môn học -->
+            
             <div
                 class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-slate-50 dark:bg-dark-card border border-slate-200/60 dark:border-dark-border text-xs">
                 <div>
@@ -582,7 +582,7 @@
                 </div>
             </div>
 
-            <!-- Mục tiêu & Giải pháp kỹ thuật -->
+            
             <div>
                 <h4 class="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
                     <i class="ph-bold ph-target text-brand-600"></i> Mục tiêu & Giải pháp cốt lõi
@@ -595,7 +595,7 @@
                 </p>
             </div>
 
-            <!-- Quy trình Pipeline -->
+            
             <div>
                 <h4 class="font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
                     <i class="ph-bold ph-git-branch text-indigo-600"></i> Sơ đồ quy trình kỹ thuật (Architecture
@@ -661,7 +661,7 @@
         </div>
 
         <div id="history-list" class="flex-grow p-4 space-y-3 overflow-y-auto">
-            <!-- Empty State -->
+            
             <div id="history-empty" class="text-center py-12 text-slate-400 space-y-2">
                 <i class="ph-duotone ph-ghost text-4xl"></i>
                 <p class="text-sm font-semibold">Chưa có lịch sử dịch nào</p>
@@ -741,7 +741,7 @@
                     }
                 }
             } catch (e) {
-                // Keep default status
+                
             }
         }
 

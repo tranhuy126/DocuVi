@@ -28,7 +28,7 @@ from pdf_engine import (
     compute_safe_insert_rect,
 )
 
-# Ép mã hóa UTF-8 trên Windows console để in log tiếng Việt không bị lỗi font
+
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -39,7 +39,7 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 def translate_pdf_document(
     doc: fitz.Document, batch_size: int = 32, num_beams: int = 1
 ):
-    """Pipeline dịch toàn bộ PDF: trích xuất layout, dịch batch GPU và tái tạo trang giữ nguyên định dạng."""
+
     if doc.is_encrypted:
         raise ValueError(
             "Tài liệu PDF được bảo vệ bằng mật khẩu hoặc bị mã hóa. Vui lòng mở khóa file trước khi dịch."
@@ -51,7 +51,7 @@ def translate_pdf_document(
         sentences_to_translate: list[str] = []
         sentence_map: list[tuple[int, int, int]] = []
 
-        # Bước 1: Trích xuất cấu trúc từng trang
+
         for page_idx, page in enumerate(doc):
             elements = extract_page_elements(page)
             all_page_elements.append(elements)
@@ -77,7 +77,7 @@ def translate_pdf_document(
                 "Hệ thống hiện tại chỉ hỗ trợ các tài liệu PDF có lớp văn bản."
             )
 
-        # Bước 2: Dịch toàn bộ cùng lúc theo batch tối ưu trên GPU/CPU
+
         if sentences_to_translate:
             translated_sents = translate_batch(
                 sentences_to_translate,
@@ -90,7 +90,7 @@ def translate_pdf_document(
                 elem = all_page_elements[p_idx][e_idx]
                 if "trans_sents" not in elem:
                     elem["trans_sents"] = [""] * len(elem["raw_sentences"])
-                # Fallback về câu gốc nếu câu dịch rỗng hoặc lỗi
+
                 raw_sent = elem["raw_sentences"][s_idx]
                 elem["trans_sents"][s_idx] = trans_sent.strip() if (trans_sent and trans_sent.strip()) else raw_sent
 
@@ -100,11 +100,11 @@ def translate_pdf_document(
                         raw_joined = " ".join(elem.get("trans_sents", [])).strip()
                         elem["translated_text"] = clean_and_normalize_text(raw_joined)
 
-        # Bước 3: Điều chỉnh cỡ font và chèn chữ an toàn vào trang
+
         for page_idx, page in enumerate(doc):
             elements = all_page_elements[page_idx]
 
-            # 3.1: Kiểm tra trước khả năng vừa vặn cho từng phần tử bằng ScratchFontTester
+
             for elem in elements:
                 if not elem.get("need_trans"):
                     elem["can_render"] = False
@@ -121,7 +121,7 @@ def translate_pdf_document(
                 max_size = elem["size"]
                 lineheight = elem["lineheight_ratio"]
 
-                # Lần thử 1: Với cỡ chữ gốc và lineheight hiện tại
+
                 font_size, fitted = scratch_tester.fit_size(
                     rect=insert_rect,
                     text=trans_text,
@@ -132,7 +132,7 @@ def translate_pdf_document(
                     align=elem["align"],
                 )
 
-                # Lần thử 2: Nếu chưa vừa, giảm nhẹ lineheight xuống 1.05
+
                 if not fitted and lineheight > 1.05:
                     lineheight = 1.05
                     font_size, fitted = scratch_tester.fit_size(
@@ -145,7 +145,7 @@ def translate_pdf_document(
                         align=elem["align"],
                     )
 
-                # Lần thử 3: Nếu chưa vừa, giảm lineheight xuống 0.98 và min_size xuống 4.0 (cell) / 4.5 (text)
+
                 if not fitted:
                     lineheight = 0.98
                     min_limit = 4.0 if is_cell else 4.5
@@ -172,8 +172,7 @@ def translate_pdf_document(
                         "GIỮ NGUYÊN VĂN BẢN GỐC để đảm bảo an toàn tài liệu."
                     )
 
-            # 3.2: CHỈ XÓA VÙNG CHỮ CỦA NHỮNG PHẦN TỬ ĐÃ XÁC NHẬN CHÈN AN TOÀN
-            # Tuyệt đối không xóa văn bản gốc nếu bản dịch không thể hiển thị vừa vặn!
+
             renderable_elements = [e for e in elements if e.get("can_render")]
 
             for elem in renderable_elements:
@@ -196,7 +195,7 @@ def translate_pdf_document(
                 for style, fontname in FONT_NAMES.items():
                     page.insert_font(fontname=fontname, fontbuffer=font_buffers[style])
 
-                # 3.3: Chèn văn bản dịch đã được xác nhận vào đúng tọa độ an toàn
+
                 for elem in renderable_elements:
                     rc = page.insert_textbox(
                         elem["final_insert_rect"],
@@ -207,7 +206,7 @@ def translate_pdf_document(
                         lineheight=elem["final_lineheight"],
                         align=elem["align"],
                     )
-                    # Nếu có sai số float vi lượng làm rc < 0, hạ nhẹ 0.2pt để vừa khít tuyệt đối trong cùng bounding box
+
                     if rc < 0:
                         reduced_size = max(3.8, elem["final_size"] - 0.2)
                         page.insert_textbox(
@@ -219,11 +218,11 @@ def translate_pdf_document(
                             lineheight=min(elem["final_lineheight"], 1.0),
                             align=elem["align"],
                         )
-                        # Tuyệt đối KHÔNG gọi insert_text tọa độ điểm làm tràn chữ ra ngoài lề trang!
+
 
     finally:
         scratch_tester.close()
-        # Giải phóng các danh sách trung gian và kích hoạt thu gom rác
+
         all_page_elements = None
         scratch_tester = None
         gc.collect()
@@ -235,7 +234,7 @@ def translate_pdf(
     batch_size: int = 32,
     num_beams: int = 1,
 ):
-    """Dịch file PDF từ đường dẫn và lưu file kết quả."""
+
     doc = fitz.open(input_path)
     try:
         translate_pdf_document(doc, batch_size=batch_size, num_beams=num_beams)
@@ -252,7 +251,7 @@ def translate_pdf_bytes(
     batch_size: int = 32,
     num_beams: int = 1,
 ) -> bytes:
-    """Dịch file PDF từ bộ nhớ đệm bytes và trả về bytes kết quả."""
+
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         translate_pdf_document(doc, batch_size=batch_size, num_beams=num_beams)
         return doc.tobytes(garbage=4, deflate=True, clean=True)
