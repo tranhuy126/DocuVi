@@ -1,12 +1,13 @@
-import pymupdf as fitz
-import statistics
 from collections import Counter
+import statistics
+
+import pymupdf as fitz
 
 from .config import FONT_NAMES, detect_font_style
 from .text_processor import (
-    join_spans_into_line,
-    join_lines_into_paragraph,
     clean_and_normalize_text,
+    join_lines_into_paragraph,
+    join_spans_into_line,
 )
 
 
@@ -62,7 +63,6 @@ def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
 
     horizontal_clusters = split_horizontal_lines(raw_lines)
 
-
     is_borderless_table = len(horizontal_clusters) >= 3
     if not is_borderless_table and len(horizontal_clusters) >= 2:
         for c in horizontal_clusters:
@@ -108,7 +108,6 @@ def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
                 min(prev_size, next_size), 0.1
             )
 
-
             prev_is_bold = any(
                 s.get("style", "") in ("bold", "bold_italic")
                 for s in prev_line.get("spans", [])
@@ -119,10 +118,8 @@ def group_lines_into_elements(raw_lines: list[dict]) -> list[list[dict]]:
             )
             style_diff = prev_is_bold != next_is_bold
 
-
             line_h = max(p_bbox.height, n_bbox.height, max(prev_size, next_size))
             vert_gap = n_bbox.y0 - p_bbox.y1
-
 
             is_different_element = (
                 size_diff >= 1.5
@@ -223,7 +220,6 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
                     (c_val & 255) / 255,
                 )
 
-
                 align = fitz.TEXT_ALIGN_LEFT
                 if cell_spans:
                     cell_mid = (c_rect.x0 + c_rect.x1) / 2
@@ -235,7 +231,6 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
                         align = fitz.TEXT_ALIGN_RIGHT
                     elif abs(cell_mid - span_mid) < 12 and c_rect.width > 20:
                         align = fitz.TEXT_ALIGN_CENTER
-
 
                 pad_x = min(1.5, c_rect.width * 0.08)
                 pad_y = min(1.0, c_rect.height * 0.08)
@@ -262,7 +257,6 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
     except Exception as e:
         print(f"[CẢNH BÁO] Lỗi nhận diện bảng: {e}")
 
-
     dict_data = page.get_text("dict", sort=True)
     for block in dict_data.get("blocks", []):
         if block.get("type") != 0:
@@ -276,7 +270,6 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
             or b_rect.height <= 0
         ):
             continue
-
 
         if any(
             (b_rect & t_rect).get_area() > 0.95 * b_rect.get_area()
@@ -294,7 +287,6 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
                 or line_bbox.height <= 0
             ):
                 continue
-
 
             line_area = line_bbox.get_area()
             is_line_in_table = False
@@ -332,7 +324,6 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
 
             if not valid_spans:
                 continue
-
 
             segments = []
             current_seg = [valid_spans[0]]
@@ -427,11 +418,9 @@ def extract_page_elements(page: fitz.Page) -> list[dict]:
                 }
             )
 
-
     if elements:
         page_w = page.rect.width
         mid_x = page_w / 2
-
 
         left_elems = [e for e in elements if e["bbox"].x1 < mid_x + 15 and e["bbox"].width < page_w * 0.6]
         right_elems = [e for e in elements if e["bbox"].x0 > mid_x - 15 and e["bbox"].width < page_w * 0.6]

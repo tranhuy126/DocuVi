@@ -1,15 +1,15 @@
 import re
 import sys
 import threading
+
 import torch
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
-
 
 MODEL_NAME = "vinai/vinai-translate-en2vi"
 _device = None
@@ -76,7 +76,6 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
     if len(text) <= max_chars:
         return [text]
 
-
     sub_parts = []
     candidates = re.split(r"(?<=[;:—])\s+", text)
     if len(candidates) > 1:
@@ -91,7 +90,6 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
             sub_parts.append(current.strip())
         return sub_parts
 
-
     candidates = re.split(r"(?<=,)\s+", text)
     if len(candidates) > 1:
         current = ""
@@ -104,7 +102,6 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
         if current:
             sub_parts.append(current.strip())
         return sub_parts
-
 
     words = text.split()
     current = ""
@@ -122,7 +119,6 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
 def _translate_raw_batch(
     model, tokenizer, vi_lang_id, batch: list[str], cur_device: str, num_beams: int
 ) -> list[str]:
-
     encoded = tokenizer(
         batch,
         return_tensors="pt",
@@ -150,14 +146,11 @@ def translate_batch(
     num_beams: int = 1,
     clear_cache: bool = False,
 ) -> list[str]:
-
-
     if not texts:
         return []
 
     model, tokenizer, vi_lang_id = get_translation_model()
     cur_device = get_device()
-
 
     flat_units = []
     unit_map = []
@@ -166,7 +159,6 @@ def translate_batch(
         for c in chunks:
             flat_units.append(c)
             unit_map.append(orig_idx)
-
 
     indexed_units = sorted(enumerate(flat_units), key=lambda x: len(x[1]))
     sorted_unit_indices = [x[0] for x in indexed_units]
@@ -219,17 +211,14 @@ def translate_batch(
             if clear_cache and cur_device == "cuda":
                 torch.cuda.empty_cache()
 
-
     flat_results = [""] * len(flat_units)
     for sorted_idx, res in zip(sorted_unit_indices, sorted_results):
         orig_src = flat_units[sorted_idx]
-
         cleaned_res = res.strip() if res else ""
         if not cleaned_res and orig_src.strip():
             print(f"[CẢNH BÁO] Dịch trả về rỗng cho: '{orig_src[:50]}...', giữ nguyên văn bản gốc.")
             cleaned_res = orig_src
         flat_results[sorted_idx] = cleaned_res
-
 
     grouped_results: dict[int, list[str]] = {idx: [] for idx in range(len(texts))}
     for u_idx, orig_text_idx in enumerate(unit_map):

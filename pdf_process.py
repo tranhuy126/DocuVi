@@ -1,33 +1,21 @@
+import gc
 import os
-import pymupdf as fitz
 import sys
 import time
-import gc
+
+import pymupdf as fitz
 
 from pdf_engine import (
-    BASE_DIR,
-    FONT_DIR,
-    FONT_FILES,
     FONT_NAMES,
-    FONT_BUFFERS,
-    get_font_buffers,
-    detect_font_style,
-    MODEL_NAME,
-    get_device,
-    get_translation_model,
-    translate_batch,
+    ScratchFontTester,
     clean_and_normalize_text,
-    join_spans_into_line,
-    join_lines_into_paragraph,
+    compute_safe_insert_rect,
+    extract_page_elements,
+    get_font_buffers,
     pre_filter_text,
     split_into_sentences,
-    split_horizontal_lines,
-    group_lines_into_elements,
-    extract_page_elements,
-    ScratchFontTester,
-    compute_safe_insert_rect,
+    translate_batch,
 )
-
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -39,7 +27,6 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 def translate_pdf_document(
     doc: fitz.Document, batch_size: int = 32, num_beams: int = 1
 ):
-
     if doc.is_encrypted:
         raise ValueError(
             "Tài liệu PDF được bảo vệ bằng mật khẩu hoặc bị mã hóa. Vui lòng mở khóa file trước khi dịch."
@@ -50,7 +37,6 @@ def translate_pdf_document(
         all_page_elements: list[list[dict]] = []
         sentences_to_translate: list[str] = []
         sentence_map: list[tuple[int, int, int]] = []
-
 
         for page_idx, page in enumerate(doc):
             elements = extract_page_elements(page)
@@ -77,7 +63,6 @@ def translate_pdf_document(
                 "Hệ thống hiện tại chỉ hỗ trợ các tài liệu PDF có lớp văn bản."
             )
 
-
         if sentences_to_translate:
             translated_sents = translate_batch(
                 sentences_to_translate,
@@ -100,10 +85,8 @@ def translate_pdf_document(
                         raw_joined = " ".join(elem.get("trans_sents", [])).strip()
                         elem["translated_text"] = clean_and_normalize_text(raw_joined)
 
-
         for page_idx, page in enumerate(doc):
             elements = all_page_elements[page_idx]
-
 
             for elem in elements:
                 if not elem.get("need_trans"):
@@ -121,7 +104,6 @@ def translate_pdf_document(
                 max_size = elem["size"]
                 lineheight = elem["lineheight_ratio"]
 
-
                 font_size, fitted = scratch_tester.fit_size(
                     rect=insert_rect,
                     text=trans_text,
@@ -131,7 +113,6 @@ def translate_pdf_document(
                     lineheight=lineheight,
                     align=elem["align"],
                 )
-
 
                 if not fitted and lineheight > 1.05:
                     lineheight = 1.05
@@ -144,7 +125,6 @@ def translate_pdf_document(
                         lineheight=lineheight,
                         align=elem["align"],
                     )
-
 
                 if not fitted:
                     lineheight = 0.98
@@ -172,7 +152,6 @@ def translate_pdf_document(
                         "GIỮ NGUYÊN VĂN BẢN GỐC để đảm bảo an toàn tài liệu."
                     )
 
-
             renderable_elements = [e for e in elements if e.get("can_render")]
 
             for elem in renderable_elements:
@@ -194,7 +173,6 @@ def translate_pdf_document(
                 font_buffers = get_font_buffers()
                 for style, fontname in FONT_NAMES.items():
                     page.insert_font(fontname=fontname, fontbuffer=font_buffers[style])
-
 
                 for elem in renderable_elements:
                     rc = page.insert_textbox(
@@ -218,11 +196,8 @@ def translate_pdf_document(
                             lineheight=min(elem["final_lineheight"], 1.0),
                             align=elem["align"],
                         )
-
-
     finally:
         scratch_tester.close()
-
         all_page_elements = None
         scratch_tester = None
         gc.collect()
@@ -234,7 +209,6 @@ def translate_pdf(
     batch_size: int = 32,
     num_beams: int = 1,
 ):
-
     doc = fitz.open(input_path)
     try:
         translate_pdf_document(doc, batch_size=batch_size, num_beams=num_beams)
@@ -251,7 +225,6 @@ def translate_pdf_bytes(
     batch_size: int = 32,
     num_beams: int = 1,
 ) -> bytes:
-
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         translate_pdf_document(doc, batch_size=batch_size, num_beams=num_beams)
         return doc.tobytes(garbage=4, deflate=True, clean=True)

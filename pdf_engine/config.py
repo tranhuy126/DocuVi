@@ -1,6 +1,7 @@
-import pymupdf as fitz
 from pathlib import Path
 import threading
+
+import pymupdf as fitz
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FONT_DIR = BASE_DIR / "Font"
@@ -27,7 +28,6 @@ def get_font_buffers() -> dict[str, bytes]:
         with _font_lock:
             if _FONT_BUFFERS is None:
                 buffers = {}
-
                 regular_path = FONT_DIR / FONT_FILES["regular"]
                 system_font_candidates = [
                     Path("C:/Windows/Fonts/times.ttf"),
@@ -58,7 +58,6 @@ def get_font_buffers() -> dict[str, bytes]:
                     )
 
                 buffers["regular"] = base_regular_buffer
-
 
                 for style in ("bold", "italic", "bold_italic"):
                     filename = FONT_FILES[style]
@@ -118,9 +117,8 @@ def detect_font_style(flags: int = 0, font_name: str = "") -> str:
     is_italic = bool(flags & 2) or any(k in fn for k in ("italic", "oblique", "slanted"))
     if is_bold and is_italic:
         return "bold_italic"
-    elif is_bold:
+    if is_bold:
         return "bold"
-    elif is_italic:
+    if is_italic:
         return "italic"
-    else:
-        return "regular"
+    return "regular"

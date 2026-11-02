@@ -29,11 +29,9 @@ class ScratchFontTester:
         if rect.is_empty or rect.is_infinite or rect.width <= 0 or rect.height <= 0:
             return False
 
-
         test_w = max(1.0, rect.width - 0.5)
         test_h = max(1.0, rect.height - 0.5)
         test_rect = fitz.Rect(0, 0, test_w, test_h)
-
 
         shape = self.page.new_shape()
         rc = shape.insert_textbox(
@@ -57,7 +55,6 @@ class ScratchFontTester:
         align: int = fitz.TEXT_ALIGN_LEFT,
         tolerance: float = 0.25,
     ) -> tuple[float, bool]:
-
         rect = fitz.Rect(rect)
         if not text or not text.strip():
             return min_size, False
@@ -65,7 +62,6 @@ class ScratchFontTester:
             return min_size, False
 
         max_size = max(max_size, min_size)
-
 
         if self.test_fit(rect, text, fontname, max_size, lineheight, align):
             return max_size, True
@@ -113,27 +109,21 @@ class ScratchFontTester:
 def compute_safe_insert_rect(
     page: fitz.Page, item: dict, all_elements: list[dict], gap: float = 2.0
 ) -> fitz.Rect:
-
-
     rect = fitz.Rect(item["bbox"])
     if item.get("is_table_cell"):
         return item["insert_rect"]
 
     is_multiline = len(item.get("original_lines", [])) > 1
-
     max_bottom = page.rect.y1 - gap
     max_right = page.rect.x1 - gap
 
-
     obstacles: list[fitz.Rect] = []
-
 
     for other in all_elements:
         if other is not item:
             ob = fitz.Rect(other["bbox"])
             if not ob.is_empty and not ob.is_infinite:
                 obstacles.append(ob)
-
 
     try:
         for img_info in page.get_image_info():
@@ -143,22 +133,18 @@ def compute_safe_insert_rect(
     except Exception:
         pass
 
-
     try:
         for dwg in page.get_drawings():
             db = fitz.Rect(dwg.get("rect", ()))
-
             if not db.is_empty and not db.is_infinite and db.height > 6 and (rect & db).get_area() < 0.5 * db.get_area():
                 obstacles.append(db)
     except Exception:
         pass
 
-
     for obs in obstacles:
         ho = min(rect.x1, obs.x1) - max(rect.x0, obs.x0)
         if ho > 0 and obs.y0 >= rect.y1 - 0.5:
             max_bottom = min(max_bottom, obs.y0 - gap)
-
 
         vo = min(rect.y1, obs.y1) - max(rect.y0, obs.y0)
         if vo > 0 and obs.x0 >= rect.x1 - 0.5:

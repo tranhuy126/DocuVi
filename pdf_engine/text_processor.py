@@ -37,7 +37,6 @@ def join_spans_into_line(spans: list[dict]) -> str:
             gap = curr_x0 - prev_x1
             font_size = max(previous_span["size"], span["size"])
 
-
             if (
                 gap > font_size * 0.15
                 and result
@@ -83,7 +82,6 @@ def join_lines_into_paragraph(lines: list[dict]) -> str:
             prefix = result[:-1].split()[-1].lower() if result[:-1].split() else ""
             first_word = text.split()[0].lower() if text.split() else ""
 
-
             should_keep_hyphen = (
                 prefix in HYPHEN_PREFIXES
                 or first_word in HYPHEN_SUFFIXES
@@ -108,7 +106,6 @@ PAGE_NUM_PATTERN = re.compile(r"^\s*(\d+)\s*(?:of|/)\s*(\d+)\s*$", re.IGNORECASE
 NUMBER_OR_SYMBOL_PATTERN = re.compile(
     r"^[0-9\s.,;:\-+*/=><%#$€£¥()\[\]{}|\\•·~_–—^°]+$"
 )
-
 
 MATH_EXPLICIT_OP = r"(?:<=|>=|!=|==|->|<-|[=<>≤≥±×÷∈∉∑∏∫≈~])"
 MATH_TOKEN_CHARS = r"[a-zA-Z0-9_\(\)\[\]\{\}\\\^\.\',]"
@@ -135,14 +132,11 @@ def pre_filter_text(text: str) -> tuple[bool, str]:
     if match:
         return False, f"{match.group(1)} / {match.group(2)}"
 
-
     if re.fullmatch(r"\[\s*\d+\s*(?:[-–,]\s*\d+\s*)*\]", text):
         return False, text
 
-
     if re.fullmatch(r"^[a-zA-Z]+(?:-[a-zA-Z]+)+$", text.strip()):
         return True, text
-
 
     if len(text) < 60 and MATH_EXPLICIT_PATTERN.match(text):
         if not re.search(r"[0-9=<>\+×÷±≤≥≈~]", text):
@@ -162,11 +156,9 @@ def split_into_sentences(text: str) -> list[str]:
     if not text:
         return []
 
-
     protected = re.sub(r"(^\s*\d+(?:\.\d+)*)\.\s+", r"\1{{DOT}} ", text)
     protected = re.sub(r"(\d+)\.(\d+)", r"\1{{DOT}}\2", protected)
     protected = ABBR_PATTERN.sub(lambda m: m.group(0)[:-1] + "{{DOT}}", protected)
-
 
     parts = re.split(
         r'(?<!\b[A-Z])(?:(?<=[.!?]["\'”’\)])|(?<=[.!?]))\s+(?=[A-Z0-9"“\'(\[])',

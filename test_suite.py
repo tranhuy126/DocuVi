@@ -3,23 +3,22 @@ import shutil
 import tempfile
 import time
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 import pymupdf as fitz
 
+import app as flask_app_module
 from pdf_engine import (
-    get_font_buffers,
-    FONT_NAMES,
+    ScratchFontTester,
     clean_and_normalize_text,
+    compute_safe_insert_rect,
+    extract_page_elements,
+    get_font_buffers,
+    group_lines_into_elements,
     pre_filter_text,
     split_into_sentences,
-    extract_page_elements,
-    ScratchFontTester,
-    compute_safe_insert_rect,
-    group_lines_into_elements,
 )
-from pdf_process import translate_pdf, translate_pdf_document
-import app as flask_app_module
-
+from pdf_process import translate_pdf
 
 class TestDocuViComprehensiveSuite(unittest.TestCase):
     def setUp(self):
@@ -29,7 +28,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-
 
     def test_case_1_short_valid_pdf(self):
         input_pdf = os.path.join(self.temp_dir, "case1_in.pdf")
@@ -58,7 +56,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             self.assertTrue("Trí tuệ nhân tạo" in text or "phát triển" in text)
         print("✓ Test Case 1: PDF hợp lệ 1 đoạn văn ngắn - ĐẠT")
 
-
     def test_case_2_multipage_multipara_pdf(self):
         input_pdf = os.path.join(self.temp_dir, "case2_in.pdf")
         output_pdf = os.path.join(self.temp_dir, "case2_out.pdf")
@@ -83,7 +80,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
                 self.assertTrue("Đã dịch" in page_text)
         print("✓ Test Case 2: PDF nhiều đoạn và nhiều trang - ĐẠT")
 
-
     def test_case_3_heading_body_bold_italic(self):
         input_pdf = os.path.join(self.temp_dir, "case3_in.pdf")
         output_pdf = os.path.join(self.temp_dir, "case3_out.pdf")
@@ -96,7 +92,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         p.insert_textbox(fitz.Rect(50, 120, 500, 200), "This is normal body text that follows the title heading.", fontsize=10)
         doc.save(input_pdf)
         doc.close()
-
 
         with fitz.open(input_pdf) as in_doc:
             elems = extract_page_elements(in_doc[0])
@@ -113,7 +108,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             out_text = out_doc[0].get_text()
             self.assertTrue("Dịch: MAIN TITLE" in out_text or "Dịch" in out_text)
         print("✓ Test Case 3: PDF có tiêu đề, thân bài, kích thước font khác biệt - ĐẠT")
-
 
     def test_case_4_two_columns_layout(self):
         input_pdf = os.path.join(self.temp_dir, "case4_in.pdf")
@@ -137,7 +131,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             self.assertLessEqual(safe_rect.x1, 320.0, "Cột 1 không được mở rộng đè lên Cột 2")
         print("✓ Test Case 4: PDF hai cột không bị gom và không bị xâm lấn cột - ĐẠT")
 
-
     def test_case_5_overflow_long_paragraph(self):
         tester = ScratchFontTester()
         try:
@@ -160,7 +153,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             tester.close()
         print("✓ Test Case 5: Tự động điều chỉnh cỡ chữ cho đoạn văn bản dài - ĐẠT")
 
-
     def test_case_6_image_only_or_scanned_pdf(self):
         input_pdf = os.path.join(self.temp_dir, "case6_in.pdf")
         output_pdf = os.path.join(self.temp_dir, "case6_out.pdf")
@@ -177,7 +169,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         self.assertIn("không chứa lớp văn bản", str(ctx.exception))
         print("✓ Test Case 6: Bắt lỗi chính xác với PDF không có text layer - ĐẠT")
 
-
     def test_case_7_corrupt_or_non_pdf_upload(self):
         resp = self.app.post(
             "/api/translate-pdf",
@@ -186,7 +177,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("File không hợp lệ", resp.get_json()["error"])
-
 
         fake_pdf = tempfile.NamedTemporaryFile(suffix=".pdf")
         fake_pdf.write(b"THIS IS NOT A VALID PDF FILE AT ALL")
@@ -200,7 +190,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         self.assertIn("thiếu header %PDF-", resp2.get_json()["error"])
         print("✓ Test Case 7: Xác thực upload file PDF hợp lệ và từ chối file giả mạo - ĐẠT")
 
-
     def test_case_8_model_empty_or_error_fallback(self):
         input_pdf = os.path.join(self.temp_dir, "case8_in.pdf")
         output_pdf = os.path.join(self.temp_dir, "case8_out.pdf")
@@ -210,7 +199,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         p.insert_textbox(fitz.Rect(50, 50, 450, 100), "Original English sentence that must not be deleted.", fontsize=12)
         doc.save(input_pdf)
         doc.close()
-
 
         with patch("pdf_process.translate_batch") as mock_trans:
             mock_trans.return_value = [""]
@@ -225,7 +213,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             )
         print("✓ Test Case 8: Tự động fallback giữ văn bản gốc khi mô hình trả về rỗng - ĐẠT")
 
-
     def test_case_9_text_does_not_fit_preserves_original(self):
         input_pdf = os.path.join(self.temp_dir, "case9_in.pdf")
         output_pdf = os.path.join(self.temp_dir, "case9_out.pdf")
@@ -239,7 +226,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         doc.save(input_pdf)
         doc.close()
 
-
         huge_text = " ".join(["Từ_dài_không_thể_nhét_vừa_khung_này_được_đâu"] * 50)
         with patch("pdf_process.translate_batch") as mock_trans:
             mock_trans.return_value = [huge_text, "Văn bản chướng ngại vật dịch thành công."]
@@ -250,7 +236,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
 
             self.assertIn("Short text", out_text)
         print("✓ Test Case 9: Không xóa văn bản gốc khi bản dịch không thể chèn an toàn - ĐẠT")
-
 
     def test_case_10_missing_font_fallback(self):
         buffers = get_font_buffers()
@@ -263,7 +248,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             self.assertGreater(len(buf), 1000)
         print("✓ Test Case 10: Bộ đệm font nạp đầy đủ và hỗ trợ fallback dự phòng - ĐẠT")
 
-
     def test_case_11_job_failure_reporting(self):
         job_id = "test-job-fail-123"
         flask_app_module._jobs[job_id] = {
@@ -274,7 +258,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             "input_path": "F:\\project\\uploads\\secret_document.pdf",
             "output_path": "F:\\project\\outputs\\translated_secret.pdf",
         }
-
 
         with patch("app.translate_pdf", side_effect=RuntimeError("Lỗi hệ thống tại F:\\project\\uploads\\secret_document.pdf")):
             flask_app_module._run_translation_job(
@@ -295,7 +278,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         self.assertNotIn("input_path", data)
         self.assertNotIn("output_path", data)
         print("✓ Test Case 11: Báo lỗi chính xác, bảo mật không rò rỉ đường dẫn máy chủ - ĐẠT")
-
 
     def test_case_12_output_reopen_and_content_verification(self):
         input_pdf = os.path.join(self.temp_dir, "case12_in.pdf")
@@ -327,7 +309,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             )
         print("✓ Test Case 12: File PDF đầu ra mở lại hợp lệ và trích xuất đúng Unicode tiếng Việt - ĐẠT")
 
-
     def test_case_13_tab_space_formatting_and_short_titles(self):
         t1 = "ACCOUNTABILITY BRIEF \t\t December, 2000"
         c1 = clean_and_normalize_text(t1)
@@ -337,7 +318,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
         self.assertEqual(f1, "ACCOUNTABILITY BRIEF December, 2000")
         s1 = split_into_sentences(f1)
         self.assertEqual(s1, ["ACCOUNTABILITY BRIEF December, 2000"])
-
 
         short_titles = [
             "ACCOUNTABILITY BRIEF",
@@ -354,7 +334,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             s = split_into_sentences(f)
             self.assertGreater(len(s), 0)
 
-
         decoratives = [". .", ".                                            .", "-------", "• • •", "* * *"]
         for dec in decoratives:
             c = clean_and_normalize_text(dec)
@@ -362,7 +341,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             self.assertFalse(v, f"Chuỗi trang trí '{dec}' phải được nhận diện lọc an toàn")
 
         print("✓ Test Case 13: Tiền xử lý bảo toàn tiêu đề ngắn, tab, khoảng trắng và phân định chuỗi trang trí - ĐẠT")
-
 
     def test_case_14_borderless_table_row_preservation(self):
         raw_lines = [
@@ -376,14 +354,12 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
 
         subgroups = group_lines_into_elements(raw_lines)
 
-
         self.assertEqual(len(subgroups), 6)
         extracted_texts = [sg[0]["text"] for sg in subgroups]
         self.assertIn("$50,000", extracted_texts)
         self.assertIn("$75,000", extracted_texts)
         self.assertNotIn("$50,000 $75,000", extracted_texts)
         print("✓ Test Case 14: Nhận diện cấu trúc bảng biểu không viền, bảo toàn từng ô số liệu độc lập - ĐẠT")
-
 
     def test_case_15_tiny_bbox_retention_regression(self):
         input_pdf = os.path.join(self.temp_dir, "case15_in.pdf")
@@ -431,7 +407,6 @@ class TestDocuViComprehensiveSuite(unittest.TestCase):
             self.assertNotIn("quá dài chắc chắn", out_text)
 
         print("✓ Test Case 15: Phần tử có bbox siêu hẹp không thể vừa khung được giữ nguyên văn bản gốc - ĐẠT")
-
 
 if __name__ == "__main__":
     unittest.main()

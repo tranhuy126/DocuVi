@@ -11,37 +11,36 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     except Exception:
         pass
 
-
 from .config import (
     BASE_DIR,
+    FONT_BUFFERS,
     FONT_DIR,
     FONT_FILES,
     FONT_NAMES,
-    FONT_BUFFERS,
-    get_font_buffers,
     detect_font_style,
+    get_font_buffers,
+)
+from .layout_extractor import (
+    extract_page_elements,
+    group_lines_into_elements,
+    split_horizontal_lines,
+)
+from .renderer import (
+    ScratchFontTester,
+    compute_safe_insert_rect,
+)
+from .text_processor import (
+    clean_and_normalize_text,
+    join_lines_into_paragraph,
+    join_spans_into_line,
+    pre_filter_text,
+    split_into_sentences,
 )
 from .translator import (
     MODEL_NAME,
     get_device,
     get_translation_model,
     translate_batch,
-)
-from .text_processor import (
-    clean_and_normalize_text,
-    join_spans_into_line,
-    join_lines_into_paragraph,
-    pre_filter_text,
-    split_into_sentences,
-)
-from .layout_extractor import (
-    split_horizontal_lines,
-    group_lines_into_elements,
-    extract_page_elements,
-)
-from .renderer import (
-    ScratchFontTester,
-    compute_safe_insert_rect,
 )
 
 __all__ = [

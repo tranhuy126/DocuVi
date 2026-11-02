@@ -1,15 +1,16 @@
+from concurrent.futures import ThreadPoolExecutor
 import os
 import re
 import shutil
 import sys
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
-from flask import Flask, render_template, request, send_file, jsonify
-from werkzeug.utils import secure_filename
-import pymupdf as fitz
-from pdf_process import translate_pdf
 
+from flask import Flask, jsonify, render_template, request, send_file
+import pymupdf as fitz
+from werkzeug.utils import secure_filename
+
+from pdf_process import translate_pdf
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
@@ -18,8 +19,6 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         pass
 
 app = Flask(__name__)
-
-
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 
@@ -36,7 +35,6 @@ OUTPUT_FOLDER = os.path.join(BASE_DIR, 'outputs')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-
 _jobs: dict[str, dict] = {}
 _executor = ThreadPoolExecutor(max_workers=1)
 
@@ -46,7 +44,6 @@ def _run_translation_job(job_id, input_path, output_path, num_beams, original_fi
         _jobs[job_id]["status"] = "running"
     try:
         translate_pdf(input_path, output_path, num_beams=num_beams)
-
 
         if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
             raise RuntimeError("Quá trình dịch không tạo được file PDF kết quả hợp lệ.")
@@ -73,7 +70,6 @@ def _run_translation_job(job_id, input_path, output_path, num_beams, original_fi
             }
     except Exception as e:
         err_msg = str(e)
-
         err_msg = re.sub(r"[A-Za-z]:\\[^ \n\r\t]+", "[đường dẫn hệ thống]", err_msg)
         err_msg = re.sub(r"/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_./-]+", "[đường dẫn hệ thống]", err_msg)
         print(f"Lỗi xử lý file PDF trong job {job_id}: {e}")
@@ -101,7 +97,6 @@ def translate_api():
         if not file.filename.lower().endswith('.pdf'):
             return jsonify({'error': 'File không hợp lệ! Vui lòng chọn file có định dạng .pdf'}), 400
 
-
         header = file.read(1024)
         if not header.startswith(b'%PDF-') and b'%PDF-' not in header[:1024]:
             return jsonify({'error': 'File không phải là định dạng PDF hợp lệ (thiếu header %PDF-)!'}), 400
@@ -115,7 +110,6 @@ def translate_api():
         stored_input_filename = f"{job_id}_{safe_name}"
         input_path = os.path.join(UPLOAD_FOLDER, stored_input_filename)
         file.save(input_path)
-
 
         try:
             with fitz.open(input_path) as check_doc:
@@ -174,7 +168,6 @@ def translate_api():
 @app.route('/api/job/<job_id>/status', methods=['GET'])
 def get_job_status(job_id):
     now = time.time()
-
     expired_ids = [
         jid for jid, info in _jobs.items()
         if info.get("status") in ("done", "error") and now - info.get("created_at", 0) > 3600
@@ -185,7 +178,6 @@ def get_job_status(job_id):
     job = _jobs.get(job_id)
     if not job:
         return jsonify({"error": "Không tìm thấy job"}), 404
-
 
     return jsonify({
         "job_id": job_id,
@@ -201,16 +193,22 @@ def system_status():
     try:
         from pdf_engine import MODEL_NAME, get_device
         import torch
+
         dev = get_device()
         gpu_name = torch.cuda.get_device_name(0) if dev == 'cuda' and torch.cuda.is_available() else 'CPU'
         return jsonify({
             'model': MODEL_NAME,
             'device': dev.upper(),
             'device_name': gpu_name,
-            'status': 'online'
+            'status': 'online',
         })
     except Exception as e:
-        return jsonify({'status': 'online', 'model': 'vinai/vinai-translate-en2vi', 'device': 'CPU', 'error': str(e)})
+        return jsonify({
+            'status': 'online',
+            'model': 'vinai/vinai-translate-en2vi',
+            'device': 'CPU',
+            'error': str(e),
+        })
 
 
 @app.route('/view-pdf/<folder>/<filename>')
@@ -263,7 +261,6 @@ def download_file(filename):
 
         if os.path.isfile(candidate):
             target_path = candidate
-
             match = re.match(r"^translated_[0-9a-fA-F\-]{8,36}_(.+)$", clean_name)
             if match:
                 download_name = f"translated_{match.group(1)}"
