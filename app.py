@@ -42,8 +42,21 @@ _executor = ThreadPoolExecutor(max_workers=1)
 def _run_translation_job(job_id, input_path, output_path, num_beams, original_filename=None):
     if job_id in _jobs:
         _jobs[job_id]["status"] = "running"
+        _jobs[job_id]["progress"] = 5
+        _jobs[job_id]["message"] = "Đang bắt đầu phân tích tài liệu..."
+
+    def on_progress(percent: int, message: str):
+        if job_id in _jobs:
+            _jobs[job_id]["progress"] = percent
+            _jobs[job_id]["message"] = message
+
     try:
-        translate_pdf(input_path, output_path, num_beams=num_beams)
+        translate_pdf(
+            input_path,
+            output_path,
+            num_beams=num_beams,
+            progress_callback=on_progress,
+        )
 
         if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
             raise RuntimeError("Quá trình dịch không tạo được file PDF kết quả hợp lệ.")
@@ -57,6 +70,8 @@ def _run_translation_job(job_id, input_path, output_path, num_beams, original_fi
         stored_in = os.path.basename(input_path)
         if job_id in _jobs:
             _jobs[job_id]["status"] = "done"
+            _jobs[job_id]["progress"] = 100
+            _jobs[job_id]["message"] = "Dịch hoàn tất! Đang nạp bản xem trước..."
             _jobs[job_id]["result"] = {
                 "success": True,
                 "job_id": job_id,
@@ -151,6 +166,8 @@ def translate_api():
 
     _jobs[job_id] = {
         "status": "pending",
+        "progress": 2,
+        "message": "Đang chuẩn bị xử lý tài liệu...",
         "result": None,
         "error": None,
         "created_at": time.time(),
@@ -182,6 +199,8 @@ def get_job_status(job_id):
     return jsonify({
         "job_id": job_id,
         "status": job.get("status"),
+        "progress": job.get("progress", 0),
+        "message": job.get("message", ""),
         "result": job.get("result"),
         "error": job.get("error"),
         "created_at": job.get("created_at"),

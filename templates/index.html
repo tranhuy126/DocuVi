@@ -860,20 +860,9 @@
             progressCard.classList.remove("hidden");
             resultCard.classList.add("hidden");
             window.docStartTime = Date.now();
-            $("progress-bar-fill").style.width = "5%";
-            $("progress-percent").textContent = "5%";
+            $("progress-bar-fill").style.width = "3%";
+            $("progress-percent").textContent = "3%";
             $("progress-status-text").textContent = "Đang gửi PDF đến AI Engine...";
-
-            let percent = 5;
-            if (window.docProgressTimer) clearInterval(window.docProgressTimer);
-            window.docProgressTimer = setInterval(() => {
-                percent = Math.min(percent + 1, 92);
-                $("progress-bar-fill").style.width = `${percent}%`;
-                $("progress-percent").textContent = `${percent}%`;
-                if (percent === 30) $("progress-status-text").textContent = "Trích xuất layout, bảng biểu và văn bản...";
-                else if (percent === 65) $("progress-status-text").textContent = "Mô hình Neural AI đang dịch toàn bộ nội dung...";
-                else if (percent === 85) $("progress-status-text").textContent = "Đang căn chỉnh font và tái tạo tài liệu PDF...";
-            }, 1000);
 
             try {
                 const formData = new FormData();
@@ -891,7 +880,6 @@
 
                 pollJobStatus(data.job_id);
             } catch (error) {
-                if (window.docProgressTimer) clearInterval(window.docProgressTimer);
                 progressCard.classList.add("hidden");
                 fileSelectedCard.classList.remove("hidden");
                 showToast(error.message || "Không kết nối được backend. Hãy kiểm tra cửa sổ Terminal.");
@@ -908,9 +896,17 @@
                     }
                     const job = await response.json();
 
-                    if (job.status === "done") {
+                    if (job.status === "running" || job.status === "pending") {
+                        if (typeof job.progress === "number" && job.progress > 0) {
+                            const p = Math.min(Math.max(Math.round(job.progress), 1), 99);
+                            $("progress-bar-fill").style.width = `${p}%`;
+                            $("progress-percent").textContent = `${p}%`;
+                        }
+                        if (job.message) {
+                            $("progress-status-text").textContent = job.message;
+                        }
+                    } else if (job.status === "done") {
                         clearInterval(pollInterval);
-                        if (window.docProgressTimer) clearInterval(window.docProgressTimer);
 
                         const result = job.result;
                         state.downloadUrl = result.download_url;
@@ -923,19 +919,17 @@
                         setTimeout(() => finishDocTranslation(result), 350);
                     } else if (job.status === "error") {
                         clearInterval(pollInterval);
-                        if (window.docProgressTimer) clearInterval(window.docProgressTimer);
                         progressCard.classList.add("hidden");
                         fileSelectedCard.classList.remove("hidden");
                         showToast(job.error || "Lỗi khi dịch tài liệu PDF.");
                     }
                 } catch (error) {
                     clearInterval(pollInterval);
-                    if (window.docProgressTimer) clearInterval(window.docProgressTimer);
                     progressCard.classList.add("hidden");
                     fileSelectedCard.classList.remove("hidden");
                     showToast(error.message || "Không thể kiểm tra trạng thái xử lý.");
                 }
-            }, 2000);
+            }, 500);
         }
 
         function finishDocTranslation(data) {

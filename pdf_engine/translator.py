@@ -145,6 +145,7 @@ def translate_batch(
     batch_size: int = 32,
     num_beams: int = 1,
     clear_cache: bool = False,
+    progress_callback=None,
 ) -> list[str]:
     if not texts:
         return []
@@ -179,6 +180,8 @@ def translate_batch(
                     for b_offset, res_text in enumerate(decoded):
                         sorted_results[i + b_offset] = res_text
                     i += len(batch)
+                    if progress_callback:
+                        progress_callback(min(i, len(sorted_units)), len(sorted_units))
                 except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
                     err_msg = str(e).lower()
                     if "out of memory" in err_msg or "cuda" in err_msg:
@@ -202,11 +205,15 @@ def translate_batch(
                                 print(f"[CẢNH BÁO] Không thể dịch câu: {cpu_err}. Giữ nguyên câu gốc.")
                                 sorted_results[i] = batch[0]
                             i += 1
+                            if progress_callback:
+                                progress_callback(min(i, len(sorted_units)), len(sorted_units))
                     else:
                         print(f"[LỖI BATCH DỊCH] {e}. Giữ nguyên câu gốc cho batch này.")
                         for b_offset, orig_text in enumerate(batch):
                             sorted_results[i + b_offset] = orig_text
                         i += len(batch)
+                        if progress_callback:
+                            progress_callback(min(i, len(sorted_units)), len(sorted_units))
 
             if clear_cache and cur_device == "cuda":
                 torch.cuda.empty_cache()

@@ -25,7 +25,10 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 
 
 def translate_pdf_document(
-    doc: fitz.Document, batch_size: int = 32, num_beams: int = 1
+    doc: fitz.Document,
+    batch_size: int = 32,
+    num_beams: int = 1,
+    progress_callback=None,
 ):
     if doc.is_encrypted:
         raise ValueError(
@@ -37,8 +40,16 @@ def translate_pdf_document(
         all_page_elements: list[list[dict]] = []
         sentences_to_translate: list[str] = []
         sentence_map: list[tuple[int, int, int]] = []
+        total_pages = len(doc)
+
+        if progress_callback and total_pages > 0:
+            progress_callback(5, f"Bắt đầu phân tích cấu trúc {total_pages} trang...")
 
         for page_idx, page in enumerate(doc):
+            if progress_callback and total_pages > 0:
+                pct = 5 + int(15 * page_idx / total_pages)
+                progress_callback(pct, f"Đang phân tích cấu trúc trang {page_idx + 1}/{total_pages}...")
+
             elements = extract_page_elements(page)
             all_page_elements.append(elements)
 
@@ -64,11 +75,24 @@ def translate_pdf_document(
             )
 
         if sentences_to_translate:
+            total_sents = len(sentences_to_translate)
+            if progress_callback:
+                progress_callback(20, f"Đang dịch {total_sents} câu bằng mô hình AI...")
+
+            def on_batch_progress(completed: int, total: int):
+                if progress_callback and total > 0:
+                    pct = 20 + int(55 * completed / total)
+                    progress_callback(
+                        pct,
+                        f"Đang dịch AI: {completed}/{total} câu ({int(completed / total * 100)}%)...",
+                    )
+
             translated_sents = translate_batch(
                 sentences_to_translate,
                 batch_size=batch_size,
                 num_beams=num_beams,
                 clear_cache=True,
+                progress_callback=on_batch_progress,
             )
 
             for (p_idx, e_idx, s_idx), trans_sent in zip(sentence_map, translated_sents):
@@ -86,6 +110,10 @@ def translate_pdf_document(
                         elem["translated_text"] = clean_and_normalize_text(raw_joined)
 
         for page_idx, page in enumerate(doc):
+            if progress_callback and total_pages > 0:
+                pct = 75 + int(23 * page_idx / total_pages)
+                progress_callback(pct, f"Đang căn chỉnh font và render trang {page_idx + 1}/{total_pages}...")
+
             elements = all_page_elements[page_idx]
 
             for elem in elements:
@@ -196,6 +224,8 @@ def translate_pdf_document(
                             lineheight=min(elem["final_lineheight"], 1.0),
                             align=elem["align"],
                         )
+        if progress_callback:
+            progress_callback(98, "Đang tối ưu hóa và ghi file PDF kết quả...")
     finally:
         scratch_tester.close()
         all_page_elements = None
@@ -208,10 +238,16 @@ def translate_pdf(
     output_path: str,
     batch_size: int = 32,
     num_beams: int = 1,
+    progress_callback=None,
 ):
     doc = fitz.open(input_path)
     try:
-        translate_pdf_document(doc, batch_size=batch_size, num_beams=num_beams)
+        translate_pdf_document(
+            doc,
+            batch_size=batch_size,
+            num_beams=num_beams,
+            progress_callback=progress_callback,
+        )
         doc.save(output_path, garbage=4, deflate=True, clean=True)
     finally:
         if not doc.is_closed:
@@ -224,9 +260,15 @@ def translate_pdf_bytes(
     pdf_bytes: bytes,
     batch_size: int = 32,
     num_beams: int = 1,
+    progress_callback=None,
 ) -> bytes:
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        translate_pdf_document(doc, batch_size=batch_size, num_beams=num_beams)
+        translate_pdf_document(
+            doc,
+            batch_size=batch_size,
+            num_beams=num_beams,
+            progress_callback=progress_callback,
+        )
         return doc.tobytes(garbage=4, deflate=True, clean=True)
 
 
