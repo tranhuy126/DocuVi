@@ -793,7 +793,7 @@
                 file,
                 name: file.name,
                 size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
-                pages: "sẽ được xử lý"
+                pages: null
             };
             state.downloadUrl = null;
             updateFileCardUI();
@@ -830,7 +830,10 @@
 
             $("file-name-display").textContent = file.name;
             $("file-size-display").textContent = file.size;
-            $("file-pages-display").textContent = `${file.pages} trang ước tính`;
+            const pageCount = Number(file.pages);
+            $("file-pages-display").textContent = Number.isFinite(pageCount) && pageCount > 0
+                ? `${pageCount} trang ước tính`
+                : "Số trang sẽ được xác định khi xử lý";
 
             $("file-icon").className = "ph-duotone ph-file-pdf text-3xl";
             $("file-icon-bg").className = "w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0";
@@ -863,6 +866,7 @@
             $("progress-bar-fill").style.width = "3%";
             $("progress-percent").textContent = "3%";
             $("progress-status-text").textContent = "Đang gửi PDF đến AI Engine...";
+            updateProgressSteps(3);
 
             try {
                 const formData = new FormData();
@@ -901,6 +905,7 @@
                             const p = Math.min(Math.max(Math.round(job.progress), 1), 99);
                             $("progress-bar-fill").style.width = `${p}%`;
                             $("progress-percent").textContent = `${p}%`;
+                            updateProgressSteps(p);
                         }
                         if (job.message) {
                             $("progress-status-text").textContent = job.message;
@@ -915,6 +920,7 @@
 
                         $("progress-bar-fill").style.width = "100%";
                         $("progress-percent").textContent = "100%";
+                        updateProgressSteps(100);
                         $("progress-status-text").textContent = "Dịch hoàn tất! Đang nạp bản xem trước trực tiếp...";
                         setTimeout(() => finishDocTranslation(result), 350);
                     } else if (job.status === "error") {
@@ -930,6 +936,35 @@
                     showToast(error.message || "Không thể kiểm tra trạng thái xử lý.");
                 }
             }, 500);
+        }
+
+        function updateProgressSteps(progress) {
+            const activeStep = progress >= 100 ? 4 : progress < 15 ? 0 : progress < 20 ? 1 : progress < 75 ? 2 : 3;
+            const styles = {
+                completed: ["text-emerald-600", "dark:text-emerald-400"],
+                active: ["text-brand-600", "dark:text-brand-400"],
+                pending: ["text-slate-400"]
+            };
+
+            for (let index = 0; index < 4; index++) {
+                const step = $(`step-${index + 1}`);
+                const icon = step.querySelector(".step-icon");
+                const stepState = index < activeStep ? "completed" : index === activeStep ? "active" : "pending";
+                step.classList.remove(...styles.completed, ...styles.active, ...styles.pending);
+                step.classList.add(...styles[stepState]);
+                icon.classList.remove(
+                    "bg-emerald-500", "text-white", "border-emerald-500",
+                    "bg-brand-600", "border-brand-600",
+                    "bg-slate-100", "dark:bg-dark-card", "border-slate-300", "dark:border-slate-700"
+                );
+                if (stepState === "completed") {
+                    icon.classList.add("bg-emerald-500", "text-white", "border-emerald-500");
+                } else if (stepState === "active") {
+                    icon.classList.add("bg-brand-600", "text-white", "border-brand-600");
+                } else {
+                    icon.classList.add("bg-slate-100", "dark:bg-dark-card", "border-slate-300", "dark:border-slate-700");
+                }
+            }
         }
 
         function finishDocTranslation(data) {
@@ -1065,7 +1100,7 @@
                             <i class="ph-bold ph-file-pdf text-red-500 text-sm shrink-0"></i>
                             <span class="truncate">${item.title}</span>
                         </div>
-                        <div class="text-slate-400 mt-0.5 text-[11px]">${item.meta} • ${item.time}</div>
+                        <div class="text-slate-400 mt-0.5 text-[11px]"><span class="font-semibold">Dung lượng:</span> ${item.meta} • ${item.time}</div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <button onclick="previewHistoryDoc(${index})" class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-slate-200/60 dark:hover:bg-dark-surface rounded-lg transition-colors" title="Xem trước">
