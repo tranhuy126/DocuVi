@@ -37,6 +37,25 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 _jobs: dict[str, dict] = {}
 _executor = ThreadPoolExecutor(max_workers=1)
+JOB_RETENTION_SECONDS = 3600
+
+
+def _cleanup_expired_jobs(now=None):
+    now = time.time() if now is None else now
+    expired_ids = [
+        jid for jid, info in list(_jobs.items())
+        if info.get("status") in ("done", "error")
+        and now - info.get("created_at", now) > JOB_RETENTION_SECONDS
+    ]
+    for jid in expired_ids:
+        info = _jobs.pop(jid, {})
+        for key in ("input_path", "output_path"):
+            path = info.get(key)
+            if path and os.path.isfile(path):
+                try:
+                    os.remove(path)
+                except OSError as exc:
+                    print(f"Không thể dọn file job hết hạn {jid}: {exc}")
 
 
 def _run_translation_job(job_id, input_path, output_path, num_beams, original_filename=None):
@@ -100,6 +119,7 @@ def index():
 
 @app.route('/api/translate-pdf', methods=['POST'])
 def translate_api():
+    _cleanup_expired_jobs()
     req_data = request.get_json(silent=True) or {}
     file = request.files.get('file') or request.files.get('pdfFile')
 
@@ -184,13 +204,7 @@ def translate_api():
 
 @app.route('/api/job/<job_id>/status', methods=['GET'])
 def get_job_status(job_id):
-    now = time.time()
-    expired_ids = [
-        jid for jid, info in _jobs.items()
-        if info.get("status") in ("done", "error") and now - info.get("created_at", 0) > 3600
-    ]
-    for jid in expired_ids:
-        _jobs.pop(jid, None)
+    _cleanup_expired_jobs()
 
     job = _jobs.get(job_id)
     if not job:
@@ -319,4 +333,10 @@ if __name__ == '__main__':
         print(f"Dịch hoàn tất sau {round(time.time() - t_start, 2)}s! Kết quả đã lưu tại: {out_path}")
     else:
         print("Khởi động server tại http://127.0.0.1:5000 ...")
-        app.run(host='127.0.0.1', port=5000, debug=True, use_reloader=False)
+        from pdf_engine import get_translation_model
+
+        print("Đang nạp model dịch trước khi mở server...")
+        get_translation_model()
+        print("Model dịch đã sẵn sàng.")
+        debug_enabled = os.environ.get("DOCUVI_DEBUG", "").strip().lower() in {"1", "true", "yes"}
+        app.run(host='127.0.0.1', port=5000, debug=debug_enabled, use_reloader=False)

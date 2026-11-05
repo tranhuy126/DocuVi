@@ -95,10 +95,19 @@ def translate_pdf_document(
                 progress_callback=on_batch_progress,
             )
 
-            for (p_idx, e_idx, s_idx), trans_sent in zip(sentence_map, translated_sents):
+            if len(translated_sents) != len(sentence_map):
+                print(
+                    "[DocuVi] Số câu dịch trả về không khớp với đầu vào "
+                    f"({len(translated_sents)} kết quả cho {len(sentence_map)} câu); "
+                    "các câu thiếu sẽ giữ nguyên bản gốc."
+                )
+
+            for (p_idx, e_idx, s_idx), trans_sent in zip(
+                sentence_map, translated_sents[:len(sentence_map)]
+            ):
                 elem = all_page_elements[p_idx][e_idx]
                 if "trans_sents" not in elem:
-                    elem["trans_sents"] = [""] * len(elem["raw_sentences"])
+                    elem["trans_sents"] = list(elem["raw_sentences"])
 
                 raw_sent = elem["raw_sentences"][s_idx]
                 elem["trans_sents"][s_idx] = trans_sent.strip() if (trans_sent and trans_sent.strip()) else raw_sent
@@ -182,6 +191,12 @@ def translate_pdf_document(
 
             renderable_elements = [e for e in elements if e.get("can_render")]
 
+            if renderable_elements:
+                # Snapshot before adding redaction annotations so the backup
+                # contains the untouched page, including its original text.
+                page_backup = fitz.open()
+                page_backup.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+
             for elem in renderable_elements:
                 b = elem["bbox"]
                 clean_bbox = fitz.Rect(
@@ -202,28 +217,45 @@ def translate_pdf_document(
                 for style, fontname in FONT_NAMES.items():
                     page.insert_font(fontname=fontname, fontbuffer=font_buffers[style])
 
-                for elem in renderable_elements:
-                    rc = page.insert_textbox(
-                        elem["final_insert_rect"],
-                        elem["translated_text"],
-                        fontsize=elem["final_size"],
-                        fontname=elem["fontname"],
-                        color=elem["color"],
-                        lineheight=elem["final_lineheight"],
-                        align=elem["align"],
-                    )
-
-                    if rc < 0:
-                        reduced_size = max(3.8, elem["final_size"] - 0.2)
-                        page.insert_textbox(
+                insertion_failed = False
+                try:
+                    for elem in renderable_elements:
+                        rc = page.insert_textbox(
                             elem["final_insert_rect"],
                             elem["translated_text"],
-                            fontsize=reduced_size,
+                            fontsize=elem["final_size"],
                             fontname=elem["fontname"],
                             color=elem["color"],
-                            lineheight=min(elem["final_lineheight"], 1.0),
+                            lineheight=elem["final_lineheight"],
                             align=elem["align"],
                         )
+                        if rc < 0:
+                            reduced_size = max(3.8, elem["final_size"] - 0.2)
+                            rc = page.insert_textbox(
+                                elem["final_insert_rect"],
+                                elem["translated_text"],
+                                fontsize=reduced_size,
+                                fontname=elem["fontname"],
+                                color=elem["color"],
+                                lineheight=min(elem["final_lineheight"], 1.0),
+                                align=elem["align"],
+                            )
+                            if rc < 0:
+                                insertion_failed = True
+                                break
+                except Exception:
+                    insertion_failed = True
+                    raise
+                finally:
+                    if insertion_failed:
+                        doc.delete_page(page_idx)
+                        doc.insert_pdf(page_backup, from_page=0, to_page=0, start_at=page_idx)
+                    page_backup.close()
+                if insertion_failed:
+                    print(
+                        f"[DocuVi] Không thể chèn bản dịch an toàn ở trang {page_idx + 1}; "
+                        "đã khôi phục nguyên trang gốc."
+                    )
         if progress_callback:
             progress_callback(98, "Đang tối ưu hóa và ghi file PDF kết quả...")
     finally:
@@ -252,7 +284,6 @@ def translate_pdf(
     finally:
         if not doc.is_closed:
             doc.close()
-        doc = None
         gc.collect()
 
 

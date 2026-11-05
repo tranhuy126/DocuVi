@@ -76,33 +76,28 @@ def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
     if len(text) <= max_chars:
         return [text]
 
-    sub_parts = []
+    def chunk_candidates(candidates: list[str]) -> list[str]:
+        chunks = []
+        current = ""
+        for candidate in candidates:
+            if current and len(current) + len(candidate) > max_chars:
+                chunks.append(current.strip())
+                current = candidate
+            else:
+                current = f"{current} {candidate}".strip() if current else candidate
+        if current:
+            chunks.append(current.strip())
+        return chunks
+
     candidates = re.split(r"(?<=[;:—])\s+", text)
     if len(candidates) > 1:
-        current = ""
-        for cand in candidates:
-            if current and len(current) + len(cand) > max_chars:
-                sub_parts.append(current.strip())
-                current = cand
-            else:
-                current = f"{current} {cand}".strip() if current else cand
-        if current:
-            sub_parts.append(current.strip())
-        return sub_parts
+        return chunk_candidates(candidates)
 
     candidates = re.split(r"(?<=,)\s+", text)
     if len(candidates) > 1:
-        current = ""
-        for cand in candidates:
-            if current and len(current) + len(cand) > max_chars:
-                sub_parts.append(current.strip())
-                current = cand
-            else:
-                current = f"{current} {cand}".strip() if current else cand
-        if current:
-            sub_parts.append(current.strip())
-        return sub_parts
+        return chunk_candidates(candidates)
 
+    sub_parts = []
     words = text.split()
     current = ""
     for w in words:
