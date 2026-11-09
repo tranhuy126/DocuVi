@@ -12,7 +12,10 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         pass
 
 MODEL_NAME = "vinai/vinai-translate-en2vi"
-_device = _tokenizer = _model = _vi_lang_id = None
+_device = None
+_tokenizer = None
+_model = None
+_vi_lang_id = None
 _model_init_lock = threading.Lock()
 model_lock = threading.Lock()
 
@@ -31,21 +34,32 @@ def get_translation_model():
     if _model is None or _tokenizer is None:
         with _model_init_lock:
             if _model is None or _tokenizer is None:
-                cur_device = get_device()
-                print(f"[Khởi tạo AI] Đang nạp mô hình dịch {MODEL_NAME} trên {cur_device.upper()}...")
-                tok = AutoTokenizer.from_pretrained(MODEL_NAME, src_lang="en_XX")
-                if cur_device == "cuda":
+                current_device = get_device()
+                print(f"[Khởi tạo AI] Đang nạp mô hình dịch {MODEL_NAME} trên {current_device.upper()}...")
+                loaded_tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME, src_lang="en_XX")
+
+                if current_device == "cuda":
                     try:
-                        mdl = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16).to(cur_device)
-                    except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
-                        print(f"[CẢNH BÁO] Không đủ VRAM trên GPU ({e}), tự động chuyển sang nạp trên CPU...")
-                        cur_device = _device = "cpu"
-                        mdl = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to("cpu")
+                        loaded_model = AutoModelForSeq2SeqLM.from_pretrained(
+                            MODEL_NAME,
+                            torch_dtype=torch.float16,
+                        ).to(current_device)
+                    except (torch.cuda.OutOfMemoryError, RuntimeError) as gpu_error:
+                        print(
+                            f"[CẢNH BÁO] Không đủ VRAM trên GPU ({gpu_error}), "
+                            "tự động chuyển sang nạp trên CPU..."
+                        )
+                        current_device = _device = "cpu"
+                        loaded_model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to("cpu")
                 else:
-                    mdl = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(cur_device)
-                mdl.eval()
-                _tokenizer, _model, _vi_lang_id = tok, mdl, tok.lang_code_to_id["vi_VN"]
-                print(f"[Khởi tạo AI] Nạp mô hình hoàn tất trên {cur_device.upper()}!")
+                    loaded_model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(current_device)
+
+                loaded_model.eval()
+                _tokenizer = loaded_tokenizer
+                _model = loaded_model
+                _vi_lang_id = loaded_tokenizer.lang_code_to_id["vi_VN"]
+                print(f"[Khởi tạo AI] Nạp mô hình hoàn tất trên {current_device.upper()}!")
+
     return _model, _tokenizer, _vi_lang_id
 
 
@@ -60,109 +74,174 @@ def __getattr__(name: str):
 
 
 def _chunk_text_if_needed(text: str, max_chars: int = 500) -> list[str]:
-    text = text.strip()
-    if len(text) <= max_chars:
-        return [text]
-    for pattern in (r"(?<=[;:—])\s+", r"(?<=,)\s+"):
-        candidates = re.split(pattern, text)
-        if len(candidates) > 1:
-            parts, pad = candidates, 0
+    stripped_text = text.strip()
+    if len(stripped_text) <= max_chars:
+        return [stripped_text]
+
+    for split_pattern in (r"(?<=[;:—])\s+", r"(?<=,)\s+"):
+        candidate_parts = re.split(split_pattern, stripped_text)
+        if len(candidate_parts) > 1:
+            segments = candidate_parts
+            space_padding = 0
             break
     else:
-        parts, pad = text.split(), 1
+        segments = stripped_text.split()
+        space_padding = 1
 
-    chunks, current = [], ""
-    for item in parts:
-        if current and len(current) + len(item) + pad > max_chars:
-            chunks.append(current.strip())
-            current = item
+    chunks = []
+    current_chunk = ""
+    for segment in segments:
+        if current_chunk and len(current_chunk) + len(segment) + space_padding > max_chars:
+            chunks.append(current_chunk.strip())
+            current_chunk = segment
         else:
-            current = f"{current} {item}".strip() if current else item
-    if current:
-        chunks.append(current.strip())
-    return chunks or [text]
+            current_chunk = f"{current_chunk} {segment}".strip() if current_chunk else segment
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+    return chunks or [stripped_text]
 
 
-def _translate_raw_batch(model, tokenizer, vi_lang_id, batch: list[str], cur_device: str, num_beams: int) -> list[str]:
-    encoded = tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=512).to(cur_device)
-    gen_kwargs = {"decoder_start_token_id": vi_lang_id, "num_beams": num_beams, "max_length": 512}
+def _translate_raw_batch(
+    model,
+    tokenizer,
+    vi_lang_id: int,
+    batch: list[str],
+    current_device: str,
+    num_beams: int,
+) -> list[str]:
+    encoded_inputs = tokenizer(
+        batch,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=512,
+    ).to(current_device)
+
+    generation_kwargs = {
+        "decoder_start_token_id": vi_lang_id,
+        "num_beams": num_beams,
+        "max_length": 512,
+    }
     if num_beams > 1:
-        gen_kwargs["early_stopping"] = True
-    return tokenizer.batch_decode(model.generate(**encoded, **gen_kwargs), skip_special_tokens=True)
+        generation_kwargs["early_stopping"] = True
+
+    generated_tokens = model.generate(**encoded_inputs, **generation_kwargs)
+    return tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
 
 
 def translate_batch(
-    texts: list[str], batch_size: int = 32, num_beams: int = 1, clear_cache: bool = False, progress_callback=None
+    texts: list[str],
+    batch_size: int = 32,
+    num_beams: int = 1,
+    clear_cache: bool = False,
+    progress_callback=None,
 ) -> list[str]:
     if not texts:
         return []
+
     model, tokenizer, vi_lang_id = get_translation_model()
-    cur_device = get_device()
+    current_device = get_device()
 
-    flat_units, unit_map = [], []
-    for orig_idx, t in enumerate(texts):
-        for c in _chunk_text_if_needed(t, max_chars=450):
-            flat_units.append(c)
-            unit_map.append(orig_idx)
+    flat_units = []
+    unit_to_text_index = []
+    for original_index, source_text in enumerate(texts):
+        for chunk in _chunk_text_if_needed(source_text, max_chars=450):
+            flat_units.append(chunk)
+            unit_to_text_index.append(original_index)
 
-    indexed_units = sorted(enumerate(flat_units), key=lambda x: len(x[1]))
-    sorted_unit_indices = [x[0] for x in indexed_units]
-    sorted_units = [x[1] for x in indexed_units]
+    indexed_units = sorted(enumerate(flat_units), key=lambda item: len(item[1]))
+    sorted_unit_indices = [item[0] for item in indexed_units]
+    sorted_units = [item[1] for item in indexed_units]
     sorted_results = [""] * len(sorted_units)
 
     with model_lock, torch.inference_mode():
-        i, current_batch_size = 0, max(1, batch_size)
-        while i < len(sorted_units):
-            batch = sorted_units[i : i + current_batch_size]
+        batch_start_index = 0
+        current_batch_size = max(1, batch_size)
+        total_units = len(sorted_units)
+
+        while batch_start_index < total_units:
+            current_batch = sorted_units[batch_start_index : batch_start_index + current_batch_size]
             try:
-                decoded = _translate_raw_batch(model, tokenizer, vi_lang_id, batch, cur_device, num_beams)
-                sorted_results[i : i + len(decoded)] = decoded
-                i += len(batch)
+                decoded_translations = _translate_raw_batch(
+                    model,
+                    tokenizer,
+                    vi_lang_id,
+                    current_batch,
+                    current_device,
+                    num_beams,
+                )
+                sorted_results[batch_start_index : batch_start_index + len(decoded_translations)] = decoded_translations
+                batch_start_index += len(current_batch)
+
                 if progress_callback:
-                    progress_callback(min(i, len(sorted_units)), len(sorted_units))
-            except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
-                err_msg = str(e).lower()
-                if "out of memory" in err_msg or "cuda" in err_msg:
-                    print(f"[CẢNH BÁO] Tràn VRAM CUDA tại batch kích thước {current_batch_size}: {e}")
-                    if cur_device == "cuda":
+                    progress_callback(min(batch_start_index, total_units), total_units)
+
+            except (torch.cuda.OutOfMemoryError, RuntimeError) as runtime_error:
+                error_message_lower = str(runtime_error).lower()
+                is_cuda_oom = "out of memory" in error_message_lower or "cuda" in error_message_lower
+
+                if is_cuda_oom:
+                    print(
+                        f"[CẢNH BÁO] Tràn VRAM CUDA tại batch kích thước "
+                        f"{current_batch_size}: {runtime_error}"
+                    )
+                    if current_device == "cuda":
                         torch.cuda.empty_cache()
+
                     if current_batch_size > 1:
                         current_batch_size = max(1, current_batch_size // 2)
                         print(f"[TỰ PHỤC HỒI] Giảm batch_size xuống {current_batch_size} và tiếp tục...")
                         continue
+
                     print("[TỰ PHỤC HỒI] Dịch câu đơn trên CPU để vượt qua giới hạn bộ nhớ...")
                     try:
-                        sorted_results[i] = _translate_raw_batch(model.to("cpu"), tokenizer, vi_lang_id, batch, "cpu", 1)[0]
+                        cpu_translation = _translate_raw_batch(
+                            model.to("cpu"),
+                            tokenizer,
+                            vi_lang_id,
+                            current_batch,
+                            "cpu",
+                            1,
+                        )[0]
+                        sorted_results[batch_start_index] = cpu_translation
                         if get_device() == "cuda":
                             model.to("cuda")
-                    except Exception as cpu_err:
-                        print(f"[CẢNH BÁO] Không thể dịch câu: {cpu_err}. Giữ nguyên câu gốc.")
-                        sorted_results[i] = batch[0]
-                    i += 1
+                    except Exception as cpu_error:
+                        print(f"[CẢNH BÁO] Không thể dịch câu: {cpu_error}. Giữ nguyên câu gốc.")
+                        sorted_results[batch_start_index] = current_batch[0]
+                    batch_start_index += 1
                 else:
-                    print(f"[LỖI BATCH DỊCH] {e}. Giữ nguyên câu gốc cho batch này.")
-                    sorted_results[i : i + len(batch)] = batch
-                    i += len(batch)
-                if progress_callback:
-                    progress_callback(min(i, len(sorted_units)), len(sorted_units))
+                    print(f"[LỖI BATCH DỊCH] {runtime_error}. Giữ nguyên câu gốc cho batch này.")
+                    sorted_results[batch_start_index : batch_start_index + len(current_batch)] = current_batch
+                    batch_start_index += len(current_batch)
 
-        if clear_cache and cur_device == "cuda":
+                if progress_callback:
+                    progress_callback(min(batch_start_index, total_units), total_units)
+
+        if clear_cache and current_device == "cuda":
             torch.cuda.empty_cache()
 
     flat_results = [""] * len(flat_units)
-    for sorted_idx, res in zip(sorted_unit_indices, sorted_results):
-        orig_src = flat_units[sorted_idx]
-        cleaned_res = (res or "").strip()
-        if not cleaned_res and orig_src.strip():
-            print(f"[CẢNH BÁO] Dịch trả về rỗng cho: '{orig_src[:50]}...', giữ nguyên văn bản gốc.")
-            cleaned_res = orig_src
-        flat_results[sorted_idx] = cleaned_res
+    for original_unit_index, raw_translation in zip(sorted_unit_indices, sorted_results):
+        original_unit_text = flat_units[original_unit_index]
+        cleaned_translation = (raw_translation or "").strip()
+        if not cleaned_translation and original_unit_text.strip():
+            print(
+                f"[CẢNH BÁO] Dịch trả về rỗng cho: '{original_unit_text[:50]}...', "
+                "giữ nguyên văn bản gốc."
+            )
+            cleaned_translation = original_unit_text
+        flat_results[original_unit_index] = cleaned_translation
 
-    grouped_results: dict[int, list[str]] = {idx: [] for idx in range(len(texts))}
-    for u_idx, orig_text_idx in enumerate(unit_map):
-        grouped_results[orig_text_idx].append(flat_results[u_idx])
+    grouped_results: dict[int, list[str]] = {index: [] for index in range(len(texts))}
+    for unit_index, original_text_index in enumerate(unit_to_text_index):
+        grouped_results[original_text_index].append(flat_results[unit_index])
 
-    return [
-        " ".join(p for p in grouped_results[idx] if p).strip() or texts[idx].strip()
-        for idx in range(len(texts))
-    ]
+    final_translations = []
+    for index, original_text in enumerate(texts):
+        joined_translation = " ".join(part for part in grouped_results[index] if part).strip()
+        final_translations.append(joined_translation or original_text.strip())
+
+    return final_translations
+

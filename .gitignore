@@ -47,8 +47,10 @@ archive.zip
 # Evaluation and benchmark datasets (contains 1000+ test PDFs)
 archive/
 
-# Uploaded and output PDFs (keep directory structure via .gitkeep)
+# Uploaded and output PDFs (keep directory structure and sample files)
 uploads/*
 !uploads/.gitkeep
+!uploads/test1.pdf
+!uploads/Best_Online_Therapy_for_Kids.pdf
 outputs/*
 !outputs/.gitkeep

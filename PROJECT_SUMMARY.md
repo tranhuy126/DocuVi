@@ -206,20 +206,26 @@ flowchart TD
 
 ### 4.3 Module Bóc tách Bố cục & Nhận diện Bảng biểu (`pdf_engine/layout_extractor.py`)
 
-- **Nhiệm vụ:** Phân tích hình học trang, tách cột độc lập, phân nhóm dòng thành đoạn văn và xác định thứ tự đọc tự nhiên.
+- **Nhiệm vụ:** Phân tích hình học trang, tách cột độc lập, nhận diện danh sách (`bullet`/`numbered list`), phân nhóm dòng thành đoạn văn và xác định thứ tự đọc tự nhiên.
+- **Cấu trúc Hàm Điều phối & Các Hàm Con Chuyên biệt:**
+  - `extract_page_elements(page)`: Hàm điều phối trung tâm, kết nối tuần tự 4 bước xử lý dưới đây.
+  - `_collect_visible_span_rects(page_dict_data)`: Thu thập toàn bộ các khung span hiển thị hợp lệ làm dữ liệu tham chiếu không gian.
+  - `_extract_bordered_table_elements(...)` & `_merge_spanning_table_cells(...)`: Dò bảng có viền qua `page.find_tables()`, hợp nhất các ô gộp ngang (merged cells) và trích xuất từng ô độc lập.
+  - `_extract_text_block_elements(...)`: Bóc tách các khối văn bản ngoài bảng, loại trừ các khối mã nguồn (`is_code`) và chữ xoay góc (`is_rotated`).
+  - `_sort_and_normalize_elements(elements, page_width)`: Sắp xếp thứ tự đọc tự nhiên (1 cột hoặc 2 cột) và chuẩn hóa căn lề.
 - **Thuật toán & Kỹ thuật chính:**
   1. **Tách cụm dòng song song theo chiều ngang (`split_horizontal_lines`):**
-     - So sánh độ giao thoa theo trục thẳng đứng (vertical overlap) giữa các dòng trong cùng một khối. Nếu hai dòng có độ trùng Y lớn hơn 40% chiều cao và khoảng cách X lệch nhau trên 8pt, hệ thống phát hiện đây là cấu trúc chia cột hoặc bảng số liệu và tách thành các cụm độc lập theo trục X.
-  2. **Nhận diện Bảng biểu không viền (`group_lines_into_elements`):**
-     - Phát hiện các khối văn bản có từ 3 cụm cột song song trở lên hoặc có từ 2 cột song song với tỷ lệ ký tự phi-chữ cái $>30\%$ (dấu hiệu của bảng số liệu tài chính).
-     - Giữ nguyên từng ô/dòng độc lập thay vì gộp đoạn, bảo toàn liên kết hàng - cột của số liệu.
-  3. **Bóc tách Bảng biểu có viền (`page.find_tables()`):**
-     - Sử dụng công cụ dò bảng tự động của PyMuPDF để trích xuất từng ô cell (`c_rect`).
-     - Tự động nhận diện căn lề của ô (căn phải cho số liệu/tiền tệ, căn giữa cho nhãn ngắn, căn trái cho văn bản).
-     - Bổ sung đệm lề an toàn (`pad_x`, `pad_y`) để chữ chèn vào không bị dính vào đường viền kẻ của bảng.
+     - So sánh độ giao thoa theo trục thẳng đứng (`vertical_overlap`) giữa các dòng trong cùng một khối. Nếu hai dòng có độ trùng Y lớn hơn 40% chiều cao và khoảng cách X lệch nhau trên 8pt, hệ thống phát hiện đây là cấu trúc chia cột hoặc bảng số liệu và tách thành các cụm độc lập theo trục X.
+  2. **Nhận diện Danh sách & Bảng biểu không viền (`group_lines_into_elements`):**
+     - Tự động ghép các ký hiệu đầu dòng rời (`•`, `1`, `2`, `1.`) với dòng nội dung kế bên và tách riêng từng mục danh sách (`list_marker`).
+     - Tính tỷ lệ ký tự in đậm (`_bold_ratio`) để giữ nguyên các đoạn văn có từ in đậm mở đầu (bold lead-in) không bị tách nhầm thành tiêu đề riêng.
+     - Phát hiện các khối văn bản có từ 3 cụm cột song song trở lên hoặc có từ 2 cột song song với tỷ lệ dòng phi-chữ cái $\ge 30\%$ để giữ nguyên từng ô độc lập.
+  3. **Bóc tách Bảng biểu có viền (`_extract_bordered_table_elements`):**
+     - Sử dụng công cụ dò bảng của PyMuPDF kết hợp thuật toán `_merge_spanning_table_cells` để trích xuất từng ô (`cell_rect`).
+     - Tự động nhận diện căn lề của ô (căn phải cho số liệu/tiền tệ, căn giữa cho nhãn ngắn, căn trái cho văn bản) và bổ sung đệm lề an toàn (`pad_x`, `pad_y`).
   4. **Cơ chế Phân định quyền sở hữu dòng (Line-level Ownership):**
-     - Một dòng ngoài bảng nếu có diện tích giao thoa $>50\%$ với ô bảng thì được xếp vào ô bảng đó, tránh tình trạng xử lý trùng lặp văn bản.
-  5. **Thuật toán Tái cấu trúc Thứ tự Đọc (Reading Order):**
+     - Một dòng ngoài bảng nếu có diện tích giao thoa $\ge 50\%$ với ô bảng thì được đánh dấu vào `consumed_line_ids` và thuộc về ô bảng đó, tránh xử lý trùng lặp văn bản.
+  5. **Thuật toán Tái cấu trúc Thứ tự Đọc (`_sort_and_normalize_elements`):**
      - Tự động phát hiện trang có bố cục 2 cột rõ rệt (dựa trên phân bố số lượng phần tử bên trái và bên phải đường phân giác giữa trang).
      - Với trang 2 cột: Các tiêu đề full-width trải dài ngang trang được ưu tiên xếp theo trục Y; các khối trong cột được đọc tuần tự từ trên xuống dưới của Cột Trái rồi mới sang Cột Phải.
 
@@ -279,11 +285,11 @@ flowchart TD
   - **Lần thử 2:** Nếu chưa vừa, giữ cỡ chữ và giảm nhẹ khoảng cách dòng $lineheight = 1.05$.
   - **Lần thử 3:** Nếu vẫn chưa vừa, giảm $lineheight = 0.98$ và cho phép hạ cỡ chữ xuống ngưỡng an toàn tối thiểu ($4.5\text{ pt}$ cho văn bản thông thường và $4.0\text{ pt}$ cho ô bảng).
 - **Quy trình Kết xuất Bảo vệ Tuyệt đối:**
-  1. Chỉ áp dụng mặt nạ che phủ (`add_redact_annot`) cho những phần tử đã được xác thực `can_render = True`.
-  2. Thực thi `page.apply_redactions(images=PDF_REDACT_IMAGE_NONE, graphics=PDF_REDACT_LINE_ART_NONE)`.
-  3. Nhúng phông chữ Times New Roman Unicode vào trang PDF.
-  4. Chèn văn bản dịch bằng `page.insert_textbox()` với kích cỡ font và bounding box đã tính toán.
-  5. Nếu xuất hiện sai số vi lượng số thực làm $rc < 0$, tự động hạ nhẹ thêm $0.2\text{ pt}$ để đảm bảo chữ không bị biến mất.
+  1. Tạo bản sao lưu trang hiện tại (`page_backup`) trong bộ nhớ trước khi can thiệp đồ họa.
+  2. Chỉ áp dụng mặt nạ che phủ (`add_redact_annot`) cho những phần tử đã được xác thực `can_render = True`, đồng thời cắt tránh vùng bảo vệ (`build_redaction_rects`) của các phần tử giữ nguyên chữ gốc.
+  3. Thực thi `page.apply_redactions(images=PDF_REDACT_IMAGE_NONE, graphics=PDF_REDACT_LINE_ART_NONE)`.
+  4. Nhúng phông chữ Times New Roman Unicode vào trang PDF.
+  5. Chèn văn bản dịch bằng `page.insert_textbox()` với kích cỡ font và bounding box đã tính toán (kèm bước thử dự phòng giảm nhẹ $0.2\text{ pt}$ nếu phát sinh sai số số thực). Nếu bất kỳ phần tử nào vẫn chèn thất bại, hệ thống tự động khôi phục nguyên trang gốc từ `page_backup`.
   6. Lưu tài liệu với các tùy chọn nén sâu: `garbage=4, deflate=True, clean=True`.
 
 ---
@@ -315,30 +321,34 @@ flowchart TD
 
 ## 5. HỆ THỐNG KIỂM THỬ TỰ ĐỘNG & ĐẢM BẢO CHẤT LƯỢNG (`test_suite.py`)
 
-Dự án tích hợp bộ kiểm thử hồi quy tự động toàn diện bao gồm **15 trường hợp kiểm thử (Test Cases)** chuyên sâu, bao phủ từ các tình huống chuẩn cho tới các trường hợp biên (edge cases) ngặt nghèo nhất:
+Dự án tích hợp bộ kiểm thử hồi quy tự động toàn diện bao gồm **19 trường hợp kiểm thử (Test Cases)** chuyên sâu, bao phủ từ các tình huống chuẩn cho tới các trường hợp biên (edge cases) ngặt nghèo nhất:
 
-| Mã Ca Kiểm Thử | Tên Phương Thức Kiểm Thử | Mục Tiêu & Cơ Chế Kiểm Thử | Trạng Thái |
-| :---: | :--- | :--- | :---: |
-| **TC-01** | `test_case_1_short_valid_pdf` | PDF hợp lệ có 1 đoạn văn ngắn: Xác thực tài liệu đầu ra được tạo thành công, dung lượng $>0$ và chứa văn bản tiếng Việt đúng chuẩn. | **ĐẠT** |
-| **TC-02** | `test_case_2_multipage_multipara_pdf` | PDF nhiều trang và nhiều đoạn: Xác thực số lượng trang đầu ra khớp chính xác với file gốc và mọi đoạn văn đều được xử lý. | **ĐẠT** |
-| **TC-03** | `test_case_3_heading_body_bold_italic` | Phân cấp Tiêu đề & Thân bài: Xác thực module layout nhận diện cỡ chữ tiêu đề lớn hơn thân bài và phong cách in đậm/in nghiêng được tách riêng. | **ĐẠT** |
-| **TC-04** | `test_case_4_two_columns_layout` | Bố cục Đa cột: Kiểm tra 2 cột văn bản nằm ngang nhau không bị gộp thành một và hộp chèn `compute_safe_insert_rect` của Cột 1 không tràn sang Cột 2. | **ĐẠT** |
-| **TC-05** | `test_case_5_overflow_long_paragraph` | Tự động Co Chữ khi Đoạn dịch Dài: Bản dịch tiếng Việt dài hơn được bộ đo font ảo hạ kích thước hợp lý để vừa khít bounding box ban đầu. | **ĐẠT** |
-| **TC-06** | `test_case_6_image_only_or_scanned_pdf` | Bắt lỗi PDF Quét không có Text Layer: Hệ thống phát hiện tài liệu dạng ảnh quét thuần túy và đưa ra thông báo từ chối an toàn kèm hướng dẫn rõ ràng. | **ĐẠT** |
-| **TC-07** | `test_case_7_corrupt_or_non_pdf_upload` | Xác thực Chống Tệp Tin Giả mạo: API từ chối các file văn bản đổi đuôi thành `.pdf` hoặc file hỏng ngay từ bước kiểm tra header magic bytes. | **ĐẠT** |
-| **TC-08** | `test_case_8_model_empty_or_error_fallback` | Tự động Fallback khi Mô hình Trả về Rỗng: Đảm bảo nếu AI trả về chuỗi rỗng hoặc khoảng trắng, hệ thống tự động giữ nguyên câu gốc tiếng Anh. | **ĐẠT** |
-| **TC-09** | `test_case_9_text_does_not_fit_preserves_original` | Không Xóa Chữ Gốc khi Không Vừa Khung: Xác thực cơ chế Zero-Loss Fallback không áp dụng redaction nếu bản dịch bị tràn lề. | **ĐẠT** |
-| **TC-10** | `test_case_10_missing_font_fallback` | Cơ chế Dự phòng Bộ Đệm Font: Đảm bảo bộ nạp font fallback về phông Times New Roman Regular nếu thiếu biến thể in đậm hoặc in nghiêng. | **ĐẠT** |
-| **TC-11** | `test_case_11_job_failure_reporting` | Bảo mật Thông tin Máy chủ: Kiểm tra chuỗi thông báo lỗi trả về cho client đã được khử hoàn toàn đường dẫn ổ đĩa tuyệt đối của máy chủ. | **ĐẠT** |
-| **TC-12** | `test_case_12_output_reopen_and_content_verification` | Xác thực File PDF Kết quả: Mở lại file PDF bằng PyMuPDF, kiểm tra trích xuất text chứa đầy đủ các ký tự tiếng Việt có dấu Unicode UTF-8 hợp lệ. | **ĐẠT** |
-| **TC-13** | `test_case_13_tab_space_formatting_and_short_titles` | Bảo toàn Tiêu đề ngắn & Ký tự trang trí: Kiểm tra các dòng gạch phân cách (`---`, `===`) không bị dịch lỗi và giữ nguyên khoảng trắng. | **ĐẠT** |
-| **TC-14** | `test_case_14_borderless_table_row_preservation` | Bảo toàn Bảng Số liệu Không Viền: Phát hiện lưới số liệu có $\ge 3$ cột song song và bảo toàn từng ô độc lập, không gộp ngang. | **ĐẠT** |
-| **TC-15** | `test_case_15_tiny_bbox_retention_regression` | Hộp Chữ Siêu Hẹp: Phần tử có diện tích cực nhỏ không thể chèn chữ an toàn sẽ được giữ nguyên chữ gốc, ngăn chặn lỗi crash ứng dụng. | **ĐẠT** |
+| Mã Ca Kiểm Thử | Tên Phương Thức Kiểm Thử | Mục Tiêu & Cơ Chế Kiểm Thử | Thời Gian | Trạng Thái |
+| :---: | :--- | :--- | :---: | :---: |
+| **TC-01** | `test_case_1_short_valid_pdf` | PDF hợp lệ có 1 đoạn văn ngắn: Xác thực tài liệu đầu ra được tạo thành công, dung lượng $>0$ và chứa văn bản tiếng Việt đúng chuẩn. | `~392 ms` | **ĐẠT** |
+| **TC-02** | `test_case_2_multipage_multipara_pdf` | PDF nhiều trang và nhiều đoạn: Xác thực số lượng trang đầu ra khớp chính xác với file gốc và mọi đoạn văn đều được xử lý. | `~345 ms` | **ĐẠT** |
+| **TC-03** | `test_case_3_heading_body_bold_italic` | Phân cấp Tiêu đề & Thân bài: Xác thực module layout nhận diện cỡ chữ tiêu đề lớn hơn thân bài và phong cách in đậm/in nghiêng được tách riêng. | `~292 ms` | **ĐẠT** |
+| **TC-04** | `test_case_4_two_columns_layout` | Bố cục Đa cột: Kiểm tra 2 cột văn bản nằm ngang nhau không bị gộp thành một và hộp chèn `compute_safe_insert_rect` của Cột 1 không tràn sang Cột 2. | `~24 ms` | **ĐẠT** |
+| **TC-05** | `test_case_5_overflow_long_paragraph` | Tự động Co Chữ khi Đoạn dịch Dài: Bản dịch tiếng Việt dài hơn được bộ đo font ảo hạ kích thước hợp lý để vừa khít bounding box ban đầu. | `~26 ms` | **ĐẠT** |
+| **TC-06** | `test_case_6_image_only_or_scanned_pdf` | Bắt lỗi PDF Quét không có Text Layer: Hệ thống phát hiện tài liệu dạng ảnh quét thuần túy và đưa ra thông báo từ chối an toàn kèm hướng dẫn rõ ràng. | `~41 ms` | **ĐẠT** |
+| **TC-07** | `test_case_7_corrupt_or_non_pdf_upload` | Xác thực Chống Tệp Tin Giả mạo: API từ chối các file văn bản đổi đuôi thành `.pdf` hoặc file hỏng ngay từ bước kiểm tra header magic bytes. | `~41 ms` | **ĐẠT** |
+| **TC-08** | `test_case_8_model_empty_or_error_fallback` | Tự động Fallback khi Mô hình Trả về Rỗng: Đảm bảo nếu AI trả về chuỗi rỗng hoặc khoảng trắng, hệ thống tự động giữ nguyên câu gốc tiếng Anh. | `~279 ms` | **ĐẠT** |
+| **TC-09** | `test_case_9_text_does_not_fit_preserves_original` | Không Xóa Chữ Gốc khi Không Vừa Khung: Xác thực cơ chế Zero-Loss Fallback không áp dụng redaction nếu bản dịch bị tràn lề. | `~333 ms` | **ĐẠT** |
+| **TC-10** | `test_case_10_missing_font_fallback` | Cơ chế Dự phòng Bộ Đệm Font: Đảm bảo bộ nạp font fallback về phông Times New Roman Regular nếu thiếu biến thể in đậm hoặc in nghiêng. | `~0.6 ms` | **ĐẠT** |
+| **TC-11** | `test_case_11_job_failure_reporting` | Bảo mật Thông tin Máy chủ: Kiểm tra chuỗi thông báo lỗi trả về cho client đã được khử hoàn toàn đường dẫn ổ đĩa tuyệt đối của máy chủ. | `~2.6 ms` | **ĐẠT** |
+| **TC-12** | `test_case_12_output_reopen_and_content_verification` | Xác thực File PDF Kết quả: Mở lại file PDF bằng PyMuPDF, kiểm tra trích xuất text chứa đầy đủ các ký tự tiếng Việt có dấu Unicode UTF-8 hợp lệ. | `~310 ms` | **ĐẠT** |
+| **TC-13** | `test_case_13_tab_space_formatting_and_short_titles` | Bảo toàn Tiêu đề ngắn & Ký tự trang trí: Kiểm tra các dòng gạch phân cách (`---`, `===`) không bị dịch lỗi và giữ nguyên khoảng trắng. | `~0.9 ms` | **ĐẠT** |
+| **TC-14** | `test_case_14_borderless_table_row_preservation` | Bảo toàn Bảng Số liệu Không Viền: Phát hiện lưới số liệu có $\ge 3$ cột song song và bảo toàn từng ô độc lập, không gộp ngang. | `~0.6 ms` | **ĐẠT** |
+| **TC-15** | `test_case_15_tiny_bbox_retention_regression` | Hộp Chữ Siêu Hẹp: Phần tử có diện tích cực nhỏ không thể chèn chữ an toàn sẽ được giữ nguyên chữ gốc, ngăn chặn lỗi crash ứng dụng. | `~314 ms` | **ĐẠT** |
+| **TC-16** | `test_case_16_insertion_failure_restores_original_page` | Khôi phục Trang Gốc khi Chèn Lỗi: Xác thực cơ chế `page_backup` tự động khôi phục nguyên trang tiếng Anh nếu `insert_textbox` thất bại. | `~246 ms` | **ĐẠT** |
+| **TC-17** | `test_case_17_list_items_split_and_marker_kept` | Bảo toàn Danh sách Gạch đầu dòng: Tách riêng từng dòng danh sách bullet (`•`) và giữ nguyên ký hiệu đầu dòng sau khi dịch. | `~17 ms` | **ĐẠT** |
+| **TC-18** | `test_case_18_bare_number_list_split` | Chuẩn hóa Danh sách Đánh số Rời: Ghép các số thứ tự đứng độc lập (`1`, `2`, `3`) với nội dung kế bên và chuẩn hóa thành `1.`, `2.`, `3.`. | `~12 ms` | **ĐẠT** |
+| **TC-19** | `test_case_19_bold_lead_in_stays_in_paragraph` | Giữ Nguyên Đoạn có Từ Đậm Mở Đầu: Đoạn văn bắt đầu bằng một cụm từ in đậm (`<b>Creativity.</b> ...`) được giữ nguyên trong cùng một khối văn bản. | `~14 ms` | **ĐẠT** |
 
 **Kết quả chạy kiểm thử thực tế:**
 ```text
-Ran 15 tests in 2.482s
-OK (15/15 test cases passed - 100% Success Rate)
+Ran 19 tests in 2.691s
+OK (19/19 test cases passed - 100% Success Rate)
 ```
 
 ---
@@ -400,7 +410,7 @@ DocuVi/
 ├── app.py                              # Điểm khởi chạy chính: Flask Server & CLI Runner
 ├── pdf_process.py                      # Pipeline điều phối dịch thuật PDF toàn diện
 ├── requirements.txt                    # Danh sách các gói phụ thuộc Python
-├── test_suite.py                       # Bộ kiểm thử hồi quy tự động 15 trường hợp
+├── test_suite.py                       # Bộ kiểm thử hồi quy tự động 19 trường hợp
 ├── .gitignore                          # Quy tắc loại trừ tệp tin phiên bản Git
 ├── README.md                           # Tài liệu hướng dẫn sử dụng tiếng Việt
 └── PROJECT_SUMMARY.md                  # Tài liệu tổng hợp toàn diện dự án (File này)
@@ -452,7 +462,7 @@ DocuVi/
   ```
   File kết quả sẽ tự động được ghi tại: `outputs/translated_<ten_file>.pdf`.
 
-- **Chạy Toàn bộ Bộ Kiểm thử Hồi quy (15 Test Cases):**
+- **Chạy Toàn bộ Bộ Kiểm thử Hồi quy (19 Test Cases):**
   ```bash
   python test_suite.py
   ```

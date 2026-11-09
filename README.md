@@ -1,5 +1,7 @@
 # DocuVi — Hệ Thống Dịch Thuật Tài Liệu PDF Giữ Nguyên Bố Cục Bằng AI (Tiếng Anh sang Tiếng Việt)
 
+[![Tiếng Việt](https://img.shields.io/badge/Ng%C3%B4n_ng%E1%BB%AF-Ti%E1%BA%BFng_Vi%E1%BB%87t-red.svg)](README.md)
+[![English](https://img.shields.io/badge/Language-English-blue.svg)](README.en.md)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.0%2B-lightgrey.svg)](https://flask.palletsprojects.com/)
 [![PyMuPDF](https://img.shields.io/badge/PyMuPDF-1.24%2B-red.svg)](https://pymupdf.readthedocs.io/)
@@ -187,7 +189,7 @@ DocuVi/
 ├── app.py                          # Điểm khởi chạy chính: Flask Web Server & CLI Runner
 ├── pdf_process.py                  # Pipeline điều phối dịch thuật PDF toàn diện
 ├── requirements.txt                # Danh sách các gói phụ thuộc Python
-├── test_suite.py                   # Bộ kiểm thử tự động toàn diện 15 trường hợp
+├── test_suite.py                   # Bộ kiểm thử tự động toàn diện 19 trường hợp
 ├── .gitignore                      # Quy tắc loại trừ file của Git
 └── README.md                       # Tài liệu hướng dẫn sử dụng dự án
 ```
@@ -216,7 +218,7 @@ DocuVi/
 
 ### 1. Tải mã nguồn dự án
 ```bash
-git clone https://github.com/<your-username>/DocuVi.git
+git clone https://github.com/tranhuy126/DocuVi.git
 cd DocuVi
 ```
 
@@ -338,13 +340,13 @@ Số liệu hiệu năng được đo kiểm thực tế trên môi trường th
 
 ## Kiểm thử & Đảm bảo chất lượng
 
-DocuVi tích hợp bộ kiểm thử hồi quy tự động toàn diện trong file [test_suite.py](file:///f:/project/test_suite.py), bao gồm 15 trường hợp kiểm thử nghiêm ngặt:
+DocuVi tích hợp bộ kiểm thử hồi quy tự động toàn diện trong file [test_suite.py](file:///f:/project/test_suite.py), bao gồm **19 trường hợp kiểm thử** nghiêm ngặt:
 
 ```bash
 python test_suite.py
 ```
 
-### Danh mục 15 trường hợp kiểm thử đã được xác thực:
+### Danh mục 19 trường hợp kiểm thử đã được xác thực:
 1. `test_case_1_short_valid_pdf`: Kiểm tra PDF hợp lệ có 1 đoạn văn ngắn.
 2. `test_case_2_multipage_multipara_pdf`: Kiểm tra tài liệu nhiều trang và nhiều đoạn văn bản.
 3. `test_case_3_heading_body_bold_italic`: Bảo toàn định dạng phông chữ (Tiêu đề, Thân bài, In đậm, In nghiêng).
@@ -360,6 +362,10 @@ python test_suite.py
 13. `test_case_13_tab_space_formatting_and_short_titles`: Bảo toàn tab, khoảng trắng và phân định chuỗi trang trí.
 14. `test_case_14_borderless_table_row_preservation`: Nhận diện và phân tách cột trong bảng số liệu không viền.
 15. `test_case_15_tiny_bbox_retention_regression`: Bảo toàn nguyên vẹn văn bản trong các ô tọa độ siêu nhỏ.
+16. `test_case_16_insertion_failure_restores_original_page`: Tự động khôi phục nguyên vẹn trang gốc từ bản sao lưu (`page_backup`) nếu quá trình chèn hộp văn bản thất bại.
+17. `test_case_17_list_items_split_and_marker_kept`: Nhận diện, tách riêng từng mục danh sách có dấu đầu dòng (`•`) và bảo toàn ký hiệu sau khi dịch.
+18. `test_case_18_bare_number_list_split`: Tự động ghép và chuẩn hóa danh sách đánh số rời không có dấu chấm (`1`, `2`, `3` $\rightarrow$ `1.`, `2.`, `3.`).
+19. `test_case_19_bold_lead_in_stays_in_paragraph`: Giữ nguyên đoạn văn có từ/cụm từ in đậm mở đầu (lead-in bold) không bị cắt rời thành hai khối.
 
 ---
 
